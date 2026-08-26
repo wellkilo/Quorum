@@ -1,7 +1,7 @@
 # Quorum External API Contract
 
-Status: phase-three typed contracts. Internal execution contracts are implemented and tested;
-HTTP endpoints remain deployment contracts and are not yet claimed as live.
+Status: phase-four executable contracts. The HTTP application and its routes are locally tested;
+no public deployment or credentialed external-service result is claimed.
 
 ## 1. Slack Events API ingress
 
@@ -39,7 +39,7 @@ Rules:
 
 - Verify Slack's `v0:{timestamp}:{rawBody}` HMAC-SHA256 signature before JSON parsing.
 - Reject timestamps outside the configured replay window.
-- Deduplicate by `event_id`.
+- Deduplicate by the canonical opaque message identity and source reference in the business store.
 - Never persist the token, signature, or raw message in application logs.
 - Convert accepted events into the canonical event below before entering the Graph.
 
@@ -48,8 +48,7 @@ Success response:
 ```json
 {
   "accepted": true,
-  "event_id": "Ev123",
-  "trace_id": "opaque-trace-id"
+  "event_id": "message_opaque"
 }
 ```
 
@@ -307,14 +306,25 @@ Request body:
 
 ```json
 {
-  "schema_version": "1.0",
-  "operation": "process_message",
-  "event": {
-    "message_id": "message_opaque",
+  "organization_id": "org_opaque",
+  "prompt": "Create the already-approved tentative event.",
+  "data_classification": "synthetic",
+  "action_request": {
+    "schema_version": "1.0",
+    "action_id": "action_opaque",
     "organization_id": "org_opaque",
-    "text": "redacted text",
-    "source_message_ref": "slack:C123:1770000000.000100"
-  }
+    "requested_by_id": "person_requester",
+    "action_class": "event_decision",
+    "tool_name": "calendar_create_tentative_event",
+    "summary": "Create a tentative planning event",
+    "reversibility": "reversible",
+    "impact_radius": "individual",
+    "money_impact": "none",
+    "candidate_decider_ids": ["person_a"],
+    "action_arguments": {},
+    "requested_at": "2026-08-26T10:00:00Z"
+  },
+  "interrupt_responses": []
 }
 ```
 
@@ -322,13 +332,17 @@ Response body:
 
 ```json
 {
-  "status": "completed|interrupted|rejected",
-  "trace_id": "opaque-trace-id",
-  "ledger_changes": [],
+  "session_id": "opaque-session-id-at-least-33-characters",
+  "status": "completed|interrupted|failed",
+  "execution_order": ["listener", "ledger_curator"],
   "interrupts": [],
-  "receipts": []
+  "usage": {}
 }
 ```
+
+The session ID is required, 33–256 characters, starts with an alphanumeric character, and contains
+only alphanumerics, hyphens, or underscores. The invocation and action-request organization IDs must
+match.
 
 ## 11. Human interrupt resume
 
@@ -336,16 +350,14 @@ The Strands interrupt response is sent back to the same logical session.
 
 ```json
 {
-  "schema_version": "1.0",
-  "operation": "resume_interrupt",
-  "responses": [
+  "organization_id": "org_opaque",
+  "prompt": "Resume the approved action.",
+  "data_classification": "synthetic",
+  "action_request": {"...": "the identical original action request"},
+  "interrupt_responses": [
     {
-      "interruptResponse": {
-        "interruptId": "interrupt_opaque",
-        "response": {
-          "decision": "approve|reject"
-        }
-      }
+      "interrupt_id": "interrupt_opaque",
+      "response": "approve"
     }
   ]
 }
@@ -353,14 +365,25 @@ The Strands interrupt response is sent back to the same logical session.
 
 ## 12. Undo action
 
-The implemented internal boundary is `ActionExecutionService.undo(token)`. The deployment transport
-will expose the URL generated in the receipt:
+`GET` is deliberately non-mutating so Slack link previews and security scanners cannot consume a
+single-use token:
 
 ```http
 GET /actions/undo?token=<single-use-signed-token>
 ```
 
-Response:
+It returns an HTML confirmation form. The response sets `Cache-Control: no-store` and
+`Referrer-Policy: no-referrer` so the single-use token is not cached or forwarded as a referrer. The
+user-confirmed mutation is:
+
+```http
+POST /actions/undo
+Content-Type: application/x-www-form-urlencoded
+
+token=<single-use-signed-token>
+```
+
+Success response:
 
 ```json
 {
@@ -379,24 +402,22 @@ auditable as `undo_failed` and does not silently restore the token.
 
 `POST /demo/replays/synthetic-week`
 
-```json
-{
-  "dataset_id": "synthetic_week_v1",
-  "speed": "fast",
-  "reset": true
-}
-```
+The request body is empty.
 
 Every replay response must state its provenance:
 
 ```json
 {
-  "run_id": "run_opaque",
+  "replay_id": "replay_opaque",
+  "dataset_id": "synthetic_week_v1",
   "data_classification": "synthetic",
-  "status": "running",
-  "metrics_url": "/demo/runs/run_opaque/metrics"
+  "baseline": {"message_count": 214, "closed_decisions": 3},
+  "quorum": {"interruption_count": 6, "closed_decisions": 6},
+  "disclaimer": "Synthetic demonstration data; not a measured real-world outcome."
 }
 ```
+
+The full snapshot is retrieved with `GET /demo/metrics/{replay_id}`. Unknown replay IDs return 404.
 
 ## 14. Error envelope
 

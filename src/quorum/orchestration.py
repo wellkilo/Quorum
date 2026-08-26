@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from strands import Agent
@@ -12,6 +13,7 @@ from strands.models import BedrockModel
 from strands.models.model import Model
 from strands.multiagent import GraphBuilder
 from strands.multiagent.graph import Graph, GraphResult, GraphState
+from strands.session.session_manager import SessionManager
 
 from quorum.ledger import LedgerRepository
 from quorum.models import (
@@ -77,7 +79,12 @@ def should_curate(state: GraphState) -> bool:
     return decision is not None and decision.eligible_for_ledger
 
 
-def build_ledger_graph(*, model: Model | None = None) -> Graph:
+def build_ledger_graph(
+    *,
+    model: Model | None = None,
+    session_manager: SessionManager | None = None,
+    trace_attributes: Mapping[str, str | int | bool | float] | None = None,
+) -> Graph:
     """Build Listener -> Ledger Curator using the installed Strands SDK."""
 
     active_model = model or build_bedrock_model(BedrockSettings.from_environment())
@@ -105,7 +112,12 @@ def build_ledger_graph(*, model: Model | None = None) -> Graph:
     builder.set_entry_point("listener")
     builder.set_max_node_executions(2)
     builder.set_execution_timeout(60)
-    return builder.build()
+    if session_manager is not None:
+        builder.set_session_manager(session_manager)
+    graph = builder.build()
+    if trace_attributes is not None:
+        graph.trace_attributes.update(trace_attributes)
+    return graph
 
 
 def event_to_graph_task(event: CanonicalMessageEvent) -> str:
@@ -141,5 +153,15 @@ def process_event(
     """Run the online graph, then enforce evidence invariants before persistence."""
 
     graph_result = graph(event_to_graph_task(event))
+    extraction = extraction_from_result(graph_result)
+    return ledger.apply(event, extraction)
+
+
+async def process_event_async(
+    graph: Graph, event: CanonicalMessageEvent, ledger: LedgerRepository
+) -> LedgerChangeSet:
+    """Run the online graph without blocking an ASGI event loop."""
+
+    graph_result = await graph.invoke_async(event_to_graph_task(event))
     extraction = extraction_from_result(graph_result)
     return ledger.apply(event, extraction)

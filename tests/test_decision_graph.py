@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 from alembic import command
 from alembic.config import Config
 from strands import Agent
+from strands.session.session_manager import SessionManager
 
 from quorum.database import DatabaseSettings, create_database_engine
 from quorum.decision_graph import (
@@ -17,6 +18,7 @@ from quorum.decision_graph import (
     DeterministicRiskNode,
     build_decision_graph,
     decision_from_result,
+    execute_approved_action,
 )
 from quorum.decision_store import DecisionPolicyStore
 from quorum.execution import ActionExecutionService
@@ -135,6 +137,36 @@ class DecisionGraphTest(unittest.TestCase):
             ],
         )
         self.assertTrue(executor.hooks.has_callbacks())
+
+    def test_gateway_tools_session_manager_and_trace_attributes_are_wired(self) -> None:
+        model = build_bedrock_model(BedrockSettings(region_name="us-west-2"))
+        session_manager = MagicMock(spec=SessionManager)
+
+        graph = build_decision_graph(
+            self.store,
+            model=model,
+            executor_tools=[execute_approved_action],
+            session_manager=session_manager,
+            trace_attributes={"quorum.session_id": "session_opaque"},
+        )
+
+        self.assertIs(graph.session_manager, session_manager)
+        self.assertEqual(graph.trace_attributes["quorum.session_id"], "session_opaque")
+        executor = graph.nodes["executor"].executor
+        self.assertIsInstance(executor, Agent)
+        self.assertEqual(executor.tool_names, ["execute_approved_action"])
+        self.assertTrue(executor.hooks.has_callbacks())
+
+    def test_local_service_and_gateway_tools_are_mutually_exclusive(self) -> None:
+        model = build_bedrock_model(BedrockSettings(region_name="us-west-2"))
+
+        with self.assertRaisesRegex(ValueError, "mutually exclusive"):
+            build_decision_graph(
+                self.store,
+                model=model,
+                execution_service=MagicMock(spec=ActionExecutionService),
+                executor_tools=[execute_approved_action],
+            )
 
 
 if __name__ == "__main__":

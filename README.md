@@ -12,7 +12,7 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 ## Status
 
-Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, Slack receipts and private questions, transactional SQLite/PostgreSQL persistence, signed single-use undo, Alembic migrations, and a 50-case synthetic evaluation suite. Live Slack, Google Workspace, and AWS production calls are not yet claimed because credentials are not configured in this development environment.
+Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, Slack ingress plus receipts and private questions, transactional SQLite/PostgreSQL persistence, AgentCore Runtime/Memory/Gateway adapters, PII-safe OpenTelemetry spans, signed single-use undo, an anonymous synthetic replay UI, Alembic migrations, and a 50-case synthetic evaluation suite. Live Slack, Google Workspace, and AWS production calls are not yet claimed because credentials are not configured in this development environment.
 
 No real organization data, user quote, impact result, live-demo URL, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
 
@@ -21,7 +21,7 @@ No real organization data, user quote, impact result, live-demo URL, or Bedrock 
 Python 3.11–3.13 and [`uv`](https://docs.astral.sh/uv/) are required.
 
 ```bash
-uv sync --extra dev --extra postgres
+uv sync --extra dev --extra postgres --extra runtime
 uv run quorum-db upgrade
 uv run quorum-db check
 uv run quorum-validate-gold
@@ -29,6 +29,7 @@ uv run python -m unittest discover -s tests -v
 uv run ruff format --check src migrations tests scripts
 uv run ruff check src migrations tests scripts
 uv run mypy src/quorum
+uv build
 ```
 
 The Graph constructor uses the installed `strands-agents==1.53.0` package. It can be built without
@@ -42,7 +43,20 @@ and undo URLs require a secret of at least 32 bytes. Keep all three outside sour
 export QUORUM_UNDO_SIGNING_SECRET='<at-least-32-random-bytes>'
 export QUORUM_PUBLIC_BASE_URL='https://your-public-origin.example'
 export QUORUM_SLACK_BOT_TOKEN='<injected-secret>'
+export QUORUM_SLACK_SIGNING_SECRET='<injected-secret>'
+export QUORUM_SLACK_PSEUDONYM_KEY='<separate-injected-secret>'
 ```
+
+The anonymous replay requires no credentials and is deliberately synthetic. Start the exact
+AgentCore-compatible ASGI application locally, then open `http://127.0.0.1:8080`:
+
+```bash
+uv run quorum-runtime
+```
+
+Press **Replay the synthetic week** to see the same fixed demonstration dataset produce the visible
+before/after metrics and receipt trail in under ten seconds. This validates the public surface, not
+a real-world impact result.
 
 ## The four mechanisms
 
@@ -139,6 +153,29 @@ Runtime session identifiers, session-state persistence, and long-term memory are
 These stores are complementary. PostgreSQL is not presented as AgentCore Memory, and a Runtime
 session ID is not used as a persistence mechanism.
 
+### AgentCore deployment inputs
+
+The repository contains executable adapters for AgentCore Runtime, Memory, and an IAM-authenticated
+Gateway Lambda target. Provisioning still requires an AWS account, region, IAM roles, a packaged
+Lambda, and external service credentials; no cloud deployment is claimed here.
+
+```bash
+uv run quorum-provision-memory --region '<aws-region>'
+uv run quorum-provision-gateway \
+  --region '<aws-region>' \
+  --role-arn '<gateway-service-role-arn>' \
+  --lambda-arn '<execution-lambda-arn>'
+
+export QUORUM_AGENTCORE_MEMORY_ID='<memory-id-from-the-first-command>'
+export QUORUM_AGENTCORE_GATEWAY_URL='<https-gateway-url>/mcp'
+```
+
+The deployment CLI interface was checked with `@aws/agentcore@0.28.0`; it requires Node.js 20 or
+later. After installing it, configure `src/quorum/runtime.py` as the Python entrypoint and deploy from
+an AWS-authenticated environment. The older Python Starter Toolkit CLI now prints a deprecation
+warning, so it is not the documented production path. Exact cloud commands will be checked in only
+after they are exercised against the target AWS account.
+
 ### Database configuration
 
 Without configuration, Quorum uses `sqlite+pysqlite:///./var/quorum.sqlite3`. Production must set a
@@ -216,10 +253,16 @@ Do not reuse a published example key for real data. The key must never be commit
   dedicated test endpoint is available.
 - Google Calendar, Gmail Draft, Google Forms, and Slack adapters use their real SDK method contracts,
   but tests replace only the network boundary. No live external API result is claimed yet.
-- The signed undo service is implemented, but the public HTTP handler behind the generated undo URL
-  remains part of the deployment milestone.
-- The three tools currently run as local Strands tools. Publishing the same narrow contracts through
-  AgentCore Gateway remains part of the AgentCore deployment milestone.
+- The undo transport is implemented and locally tested: `GET` renders a confirmation page and only
+  `POST` consumes the token. Its public HTTPS deployment is not yet claimed.
+- The three tools have typed AgentCore Gateway schemas, an IAM MCP client, and a Lambda dispatch
+  adapter. The actual Gateway, Lambda package, IAM role, and end-to-end MCP call are not yet deployed.
+- AgentCore Memory provisioning and Strands session-manager wiring are implemented and tested against
+  the installed SDK contract; no AWS Memory resource has been created from this machine.
+- OpenTelemetry correlation spans and Strands sensitive-attribute redaction are configured in code.
+  No managed AgentCore trace screenshot is claimed until deployment.
+- The replay page and API are locally executable and visibly label every result synthetic. There is no
+  anonymous public URL yet.
 
 ## Reuse and AI assistance disclosure
 
@@ -243,8 +286,10 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Slack one-line group receipt and one-question direct-message adapters
 - [x] 50-case synthetic gold set and executable metric pipeline
 - [ ] Bedrock model evaluation result
-- [ ] AgentCore Runtime, Memory, Gateway, and OTEL traces
-- [ ] Anonymous synthetic replay demo
+- [x] AgentCore Runtime, Memory session manager, Gateway MCP, and safe OTEL integration code
+- [x] Locally executable anonymous synthetic replay demo
+- [ ] Deployed AgentCore resources and managed OTEL trace evidence
+- [ ] Public anonymous replay URL
 - [x] Honest empty-baseline evaluation report
 - [ ] Consented real-organization comparison and quotation
 - [ ] Architecture diagram asset

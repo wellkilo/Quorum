@@ -11,6 +11,7 @@ from strands.agent.agent_result import AgentResult
 from strands.models.model import Model
 from strands.multiagent import GraphBuilder
 from strands.multiagent.graph import Graph
+from strands.session.session_manager import SessionManager
 from strands.telemetry.metrics import EventLoopMetrics
 from strands.types.agent import AgentInput
 
@@ -28,6 +29,7 @@ from quorum.models import (
 from quorum.orchestration import BedrockSettings, build_bedrock_model
 from quorum.policy import assess_risk
 from quorum.prompts import LEDGER_CURATOR_SYSTEM_PROMPT, LISTENER_SYSTEM_PROMPT
+from quorum.slack import SlackNotifier
 
 ACTION_REQUEST_STATE_KEY = "quorum_action_request"
 
@@ -117,6 +119,10 @@ def build_decision_graph(
     *,
     model: Model | None = None,
     execution_service: ActionExecutionService | None = None,
+    executor_tools: list[Any] | None = None,
+    approval_notifier: SlackNotifier | None = None,
+    session_manager: SessionManager | None = None,
+    trace_attributes: dict[str, str | int | bool | float] | None = None,
 ) -> Graph:
     """Build the required five-node Graph with deterministic policy before execution."""
 
@@ -139,21 +145,27 @@ def build_decision_graph(
     )
     risk_appraiser = DeterministicRiskNode()
     quorum_router = DeterministicQuorumRouterNode(store)
-    executor_tools: list[Any]
-    if execution_service is not None:
-        executor_tools = list(build_executor_tools(execution_service))
+    if execution_service is not None and executor_tools is not None:
+        raise ValueError("execution_service and executor_tools are mutually exclusive")
+    active_executor_tools: list[Any]
+    if executor_tools is not None:
+        active_executor_tools = executor_tools
+    elif execution_service is not None:
+        active_executor_tools = list(build_executor_tools(execution_service))
     else:
-        executor_tools = [execute_approved_action]
+        active_executor_tools = [execute_approved_action]
     executor = Agent(
         model=active_model,
         name="executor",
         description="Calls only tools authorized by the persisted Quorum policy.",
-        tools=executor_tools,
+        tools=active_executor_tools,
         hooks=[
             QuorumAutonomyGate(
                 store,
                 question_sender=(
-                    execution_service.approval_notifier if execution_service is not None else None
+                    execution_service.approval_notifier
+                    if execution_service is not None
+                    else approval_notifier
                 ),
             )
         ],
@@ -174,7 +186,12 @@ def build_decision_graph(
     builder.set_graph_id("quorum-decision-graph-v1")
     builder.set_max_node_executions(5)
     builder.set_execution_timeout(90)
-    return builder.build()
+    if session_manager is not None:
+        builder.set_session_manager(session_manager)
+    graph = builder.build()
+    if trace_attributes is not None:
+        graph.trace_attributes.update(trace_attributes)
+    return graph
 
 
 def decision_from_result(result: AgentResult) -> PolicyDecision:

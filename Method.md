@@ -1,10 +1,11 @@
 # Quorum Method and SDK Contract
 
-Status: phase-three executable contract based on `strands-agents==1.53.0`,
+Status: phase-four executable contract based on `strands-agents==1.53.0`,
 `pydantic==2.12.5`, `SQLAlchemy==2.0.52`, `Alembic==1.19.1`,
 `google-api-python-client==2.199.0`, `google-auth==2.57.0`, `slack-sdk==3.43.0`, and psycopg 3 for
-PostgreSQL. AgentCore remains a verified design contract until credentials and deployment are
-available.
+PostgreSQL, plus `bedrock-agentcore==1.22.0` and `mcp-proxy-for-aws==1.6.4`. AgentCore adapters and
+local HTTP surfaces are executable and tested; cloud provisioning and credentialed calls remain
+unverified until AWS credentials and deployment resources are available.
 
 ## Strands Graph
 
@@ -257,28 +258,33 @@ append-only `undone` event and lowers autonomy one level. A failed compensation 
 ## AgentCore Runtime
 
 ```python
-from bedrock_agentcore import BedrockAgentCoreApp
-
-app = BedrockAgentCoreApp()
-
-@app.entrypoint
-async def handler(request):
-    validated = RuntimeRequest.from_mapping(request)
-    async for event in graph.stream_async(validated.to_graph_input()):
-        yield event
+from quorum.runtime import app
 
 app.run()
 ```
 
-The caller supplies `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id`. Runtime session identity is not used as a substitute for graph-state persistence.
+`src/quorum/runtime.py` creates one `BedrockAgentCoreApp`. Its native `/invocations` entrypoint
+validates `RuntimeInvocation`, checks that the action and invocation organization IDs match, and
+requires `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id`. The ID follows the current Runtime contract:
+33–256 characters, alphanumeric first, then alphanumerics, hyphens, or underscores. The same app
+also hosts Slack Events, undo confirmation/execution, and the synthetic replay, so Quorum does not
+introduce another product surface.
+
+The production invoker opens an IAM-authenticated Gateway MCP client, injects its three tools into
+the five-node Graph, passes `ActionRequest` through `invocation_state`, and converts submitted
+interrupt responses into Strands `InterruptResponseContent`. Runtime session identity is not used as
+a substitute for business persistence.
 
 ## Session persistence
 
-Local development may begin with `FileSessionManager`; the deployed path must use the AgentCore Memory Strands integration or another verified durable manager. Session state stores orchestration progress and pending interrupts, not raw unredacted Slack payloads.
+Both the two-node ingestion Graph and five-node decision Graph receive a Strands `SessionManager`. In
+the production constructors this is `AgentCoreMemorySessionManager`, keyed by the opaque organization
+as `actor_id` and the validated Runtime/message identity as `session_id`. Session state stores
+orchestration progress and pending interrupts, not authoritative business rows.
 
 ## AgentCore Memory
 
-Planned integration:
+Implemented integration:
 
 ```python
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
@@ -287,22 +293,54 @@ from bedrock_agentcore.memory.integrations.strands.session_manager import (
 )
 ```
 
-Namespaces must separate organization, actor, and session scope. Only redacted durable facts, autonomy history, and approved summaries may enter long-term memory.
+`AgentCoreMemoryConfig` uses full persistence, asynchronous writes, restored-tool-context filtering,
+and retrieval from `/facts/{actorId}/` and `/summaries/{actorId}/`. The actual Memory resource is
+provisioned with semantic facts at `/facts/{actorId}/` and summaries at
+`/summaries/{actorId}/{sessionId}/`:
+
+```bash
+uv run quorum-provision-memory --region '<aws-region>'
+```
+
+The command uses `MemoryClient.create_or_get_memory`; its output populates
+`QUORUM_AGENTCORE_MEMORY_ID`. Only redacted or synthetic model traffic may reach this integration.
 
 ## AgentCore Gateway
 
-Gateway will expose the same narrow contracts rather than a single unrestricted executor. The
-provider-backed local Strands tools are implemented; Gateway publication is still planned:
+Gateway exposes the same three narrow contracts rather than a single unrestricted executor:
 
-- `calendar.create_tentative_event` / `calendar.cancel_event`;
-- `email.create_draft` / `email.discard_draft`;
-- `form.create_response_request` / `form.close_response_request`.
+- `calendar_create_tentative_event`;
+- `gmail_create_draft`;
+- `forms_create_response_request`.
 
-Every mutating tool returns an action identity, undo deadline, provider resource ID, and receipt.
+`gateway_tool_definitions()` converts the Pydantic inputs into AgentCore Gateway's recursive inline
+Lambda schema. `gateway_lambda_handler()` reads the selected tool from
+`context.client_context.custom["bedrockAgentCoreToolName"]`, rejects all other tools, validates the
+flat argument object, and delegates to `ActionExecutionService`. `gateway_executor_tools()` connects
+with `aws_iam_streamablehttp_client` and renames only the three allowed remote tools to their stable
+local names. The existing `QuorumAutonomyGate` remains attached to the Executor around those MCP
+tools.
+
+```bash
+uv run quorum-provision-gateway \
+  --region '<aws-region>' \
+  --role-arn '<gateway-service-role-arn>' \
+  --lambda-arn '<execution-lambda-arn>'
+```
+
+This helper creates an `AWS_IAM` MCP Gateway and a `GATEWAY_IAM_ROLE` Lambda target. Packaging the
+Lambda and creating its role are explicit deployment prerequisites, not hidden behavior.
 
 ## OpenTelemetry
 
-AgentCore Observability uses ADOT/OpenTelemetry. Required correlation attributes include opaque organization ID, runtime session ID, graph node, policy outcome, interruption cost, and action ID. Raw text and PII are forbidden attributes.
+AgentCore Observability uses managed ADOT/OpenTelemetry. `safe_trace_attributes()` enforces a closed
+allowlist of bounded scalar correlation attributes: opaque organization/session/action/replay IDs,
+graph node, policy outcome, interruption count, and data classification.
+
+Strands is configured with `gen_ai_unredacted_attributes=` before an application is built. In
+`strands-agents==1.53.0`, the presence of this token with an empty allowlist redacts sensitive prompt,
+system-instruction, model-output, tool-argument, and tool-result attributes. Quorum never adds raw
+messages or provider payloads as custom span attributes.
 
 ## Slack Web API methods
 
@@ -312,6 +350,9 @@ The outbound adapter implements these Slack Web API methods:
 - `conversations.open` followed by `chat.postMessage` for a private question;
 - Block Kit URL buttons for Open and Undo.
 
-The required outbound bot scopes are `chat:write` and `im:write`. Slack Events ingestion, interactive
-callback acknowledgement, the weekly summary, and a live credentialed workspace test remain the
-deployment milestone and are not claimed as complete.
+The required outbound bot scopes are `chat:write` and `im:write`. Slack Events ingress verifies the
+exact raw body with Slack's v0 HMAC scheme and a five-minute replay window, rejects malformed event
+timestamps, ignores bots and subtypes, pseudonymizes workspace/channel/user/message IDs, and redacts
+mentions, email addresses, phone numbers, and IPv4 addresses before Graph invocation. The ASGI route
+returns the 200 acknowledgement before background Graph processing. A live credentialed workspace
+test and the Sunday summary are still outstanding.
