@@ -16,6 +16,8 @@ from strands.types.agent import AgentInput
 
 from quorum.autonomy_hook import QuorumAutonomyGate
 from quorum.decision_store import DecisionPolicyStore
+from quorum.execution import ActionExecutionService
+from quorum.executor_tools import build_executor_tools
 from quorum.models import (
     ActionRequest,
     ExtractionEnvelope,
@@ -110,7 +112,12 @@ def execute_approved_action(organization_id: str, action_id: str) -> dict[str, s
     }
 
 
-def build_decision_graph(store: DecisionPolicyStore, *, model: Model | None = None) -> Graph:
+def build_decision_graph(
+    store: DecisionPolicyStore,
+    *,
+    model: Model | None = None,
+    execution_service: ActionExecutionService | None = None,
+) -> Graph:
     """Build the required five-node Graph with deterministic policy before execution."""
 
     active_model = model or build_bedrock_model(BedrockSettings.from_environment())
@@ -132,12 +139,24 @@ def build_decision_graph(store: DecisionPolicyStore, *, model: Model | None = No
     )
     risk_appraiser = DeterministicRiskNode()
     quorum_router = DeterministicQuorumRouterNode(store)
+    executor_tools: list[Any]
+    if execution_service is not None:
+        executor_tools = list(build_executor_tools(execution_service))
+    else:
+        executor_tools = [execute_approved_action]
     executor = Agent(
         model=active_model,
         name="executor",
         description="Calls only tools authorized by the persisted Quorum policy.",
-        tools=[execute_approved_action],
-        hooks=[QuorumAutonomyGate(store)],
+        tools=executor_tools,
+        hooks=[
+            QuorumAutonomyGate(
+                store,
+                question_sender=(
+                    execution_service.approval_notifier if execution_service is not None else None
+                ),
+            )
+        ],
         callback_handler=None,
     )
 

@@ -1,6 +1,7 @@
 # Quorum External API Contract
 
-Status: design contract; endpoints are not yet claimed as deployed.
+Status: phase-three typed contracts. Internal execution contracts are implemented and tested;
+HTTP endpoints remain deployment contracts and are not yet claimed as live.
 
 ## 1. Slack Events API ingress
 
@@ -156,12 +157,19 @@ declared values, not free-form model output. Candidate deciders are ordered and 
   "organization_id": "org_opaque",
   "requested_by_id": "person_requester",
   "action_class": "event_decision",
-  "tool_name": "execute_approved_action",
+  "tool_name": "calendar_create_tentative_event",
   "summary": "Create a tentative planning event",
   "reversibility": "reversible",
   "impact_radius": "individual",
   "money_impact": "none",
   "candidate_decider_ids": ["person_a", "person_b"],
+  "action_arguments": {
+    "title": "Tentative planning event",
+    "starts_at": "2026-08-28T09:00:00+08:00",
+    "ends_at": "2026-08-28T10:00:00+08:00",
+    "time_zone": "Asia/Shanghai",
+    "receipt_channel_id": "C123"
+  },
   "requested_at": "2026-08-26T10:00:00Z"
 }
 ```
@@ -185,7 +193,8 @@ interrupt event for each selected decider.
   "organization_id": "org_opaque",
   "requested_by_id": "person_requester",
   "action_class": "event_decision",
-  "tool_name": "execute_approved_action",
+  "tool_name": "calendar_create_tentative_event",
+  "arguments_fingerprint": "64-lowercase-hex-characters",
   "risk": {
     "score": 0,
     "tier": "low",
@@ -223,8 +232,9 @@ approved, or executed reversible actions and is itself idempotent.
 ## 7. Native hook interrupt contract
 
 The Executor passes `organization_id` and `action_id` in the tool input.
-`QuorumAutonomyGate` re-reads the persisted decision, verifies the exact tool name, and creates one
-Strands interrupt per selected quorum member.
+`QuorumAutonomyGate` re-reads the persisted decision, verifies the exact tool name and canonical
+SHA-256 fingerprint of every other argument, and creates one Strands interrupt per selected quorum
+member. Optional top-level null values are omitted during canonicalization.
 
 ```json
 {
@@ -242,9 +252,48 @@ Strands interrupt per selected quorum member.
 
 Accepted response payloads are the strings `approve`, `approved`, `yes`, or `y`, or an object whose
 `decision` contains one of those values. Any other response is a rejection. Missing policy, a tool
-name mismatch, or a non-executable status cancels the tool call.
+name or argument mismatch, or a non-executable status cancels the tool call.
 
-## 8. AgentCore Runtime invocation
+## 8. Reversible executor tools
+
+The implemented Strands tool names are:
+
+- `calendar_create_tentative_event`: Calendar v3 `events.insert`, with `status=tentative` and
+  `sendUpdates=none`; undo calls `events.delete`.
+- `gmail_create_draft`: Gmail v1 `users.drafts.create`; it never calls a send endpoint; undo calls
+  `users.drafts.delete`.
+- `forms_create_response_request`: Forms v1 `forms.create` plus `forms.batchUpdate`; undo deletes the
+  created file through Drive v3 `files.delete`.
+
+Every typed tool input requires `organization_id` and `action_id`. Provider-specific fields must
+exactly match the arguments fingerprint approved by the policy layer. All three tools reject unknown
+fields and irreversible policy decisions.
+
+## 9. Execution receipt
+
+`ActionExecutionService` returns this internal typed boundary after a successful provider call:
+
+```json
+{
+  "organization_id": "org_opaque",
+  "action_id": "action_opaque",
+  "tool_name": "calendar_create_tentative_event",
+  "provider": "google_calendar",
+  "external_resource_id": "opaque-provider-id",
+  "external_url": "https://provider.example/opaque-resource",
+  "status": "executed",
+  "reversible": true,
+  "executed_at": "2026-08-27T09:00:00Z",
+  "undo_expires_at": "2026-08-28T09:00:00Z",
+  "undo_url": "https://demo.example/actions/undo?token=redacted"
+}
+```
+
+An exact retry returns the persisted receipt without repeating the provider call. A transport error,
+5xx response, invalid response, or missing provider resource ID is recorded as `uncertain` and is not
+automatically retried. The database stores no action arguments or undo token plaintext.
+
+## 10. AgentCore Runtime invocation
 
 `POST /invocations` is hosted by AgentCore Runtime through `BedrockAgentCoreApp`.
 
@@ -281,7 +330,7 @@ Response body:
 }
 ```
 
-## 9. Human interrupt resume
+## 11. Human interrupt resume
 
 The Strands interrupt response is sent back to the same logical session.
 
@@ -302,15 +351,13 @@ The Strands interrupt response is sent back to the same logical session.
 }
 ```
 
-## 10. Undo action
+## 12. Undo action
 
-`POST /actions/{action_id}/undo`
+The implemented internal boundary is `ActionExecutionService.undo(token)`. The deployment transport
+will expose the URL generated in the receipt:
 
-```json
-{
-  "undo_token": "single-use-signed-token",
-  "requested_by": "person_opaque"
-}
+```http
+GET /actions/undo?token=<single-use-signed-token>
 ```
 
 Response:
@@ -318,14 +365,17 @@ Response:
 ```json
 {
   "action_id": "action_opaque",
-  "status": "undone|already_undone|expired|not_reversible",
+  "status": "undone",
   "undone_at": "2026-08-26T10:05:00Z"
 }
 ```
 
-The token must be short-lived, single-use, scoped to one action, and excluded from logs.
+The token is HMAC-SHA256 signed, scoped to one organization and action, expires after 24 hours, and
+is excluded from logs. Only its SHA-256 digest is persisted. It is atomically consumed before the
+provider delete call; tampered, expired, or reused tokens fail closed. Provider undo failure remains
+auditable as `undo_failed` and does not silently restore the token.
 
-## 11. Replay API for the public sandbox
+## 13. Replay API for the public sandbox
 
 `POST /demo/replays/synthetic-week`
 
@@ -348,7 +398,7 @@ Every replay response must state its provenance:
 }
 ```
 
-## 12. Error envelope
+## 14. Error envelope
 
 ```json
 {

@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import IntEnum, StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -88,6 +88,22 @@ class DecisionStatus(StrEnum):
     EXPIRED = "expired"
     EXECUTED = "executed"
     UNDONE = "undone"
+
+
+class ExecutionProvider(StrEnum):
+    GOOGLE_CALENDAR = "google_calendar"
+    GMAIL = "gmail"
+    GOOGLE_FORMS = "google_forms"
+
+
+class ExecutionStatus(StrEnum):
+    IN_PROGRESS = "in_progress"
+    EXECUTED = "executed"
+    FAILED = "failed"
+    UNCERTAIN = "uncertain"
+    UNDOING = "undoing"
+    UNDONE = "undone"
+    UNDO_FAILED = "undo_failed"
 
 
 OpaqueId = Annotated[str, Field(min_length=3, max_length=200, pattern=r"^[A-Za-z0-9:_\-.]+$")]
@@ -220,6 +236,7 @@ class ActionRequest(StrictModel):
     impact_radius: ImpactRadius
     money_impact: MoneyImpact
     candidate_decider_ids: Annotated[list[OpaqueId], Field(min_length=1, max_length=10)]
+    action_arguments: dict[str, JsonValue] = Field(default_factory=dict)
     requested_at: datetime
 
     @field_validator("requested_at")
@@ -269,6 +286,7 @@ class PolicyDecision(StrictModel):
     requested_by_id: OpaqueId
     action_class: TaskClass
     tool_name: str
+    arguments_fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     risk: RiskAssessment
     autonomy: AutonomySnapshot
     required_quorum: int = Field(ge=0, le=10)
@@ -308,3 +326,74 @@ class InterruptResolution(StrictModel):
         if len(ids) != len(set(ids)):
             raise ValueError("each participant may respond once")
         return value
+
+
+class CalendarActionInput(StrictModel):
+    organization_id: OpaqueId
+    action_id: OpaqueId
+    title: Annotated[str, Field(min_length=1, max_length=300)]
+    starts_at: datetime
+    ends_at: datetime
+    time_zone: Annotated[str, Field(min_length=1, max_length=100)] = "UTC"
+    receipt_channel_id: OpaqueId | None = None
+
+    @model_validator(mode="after")
+    def validate_interval(self) -> CalendarActionInput:
+        if self.starts_at.tzinfo is None or self.starts_at.utcoffset() is None:
+            raise ValueError("starts_at must include a timezone")
+        if self.ends_at.tzinfo is None or self.ends_at.utcoffset() is None:
+            raise ValueError("ends_at must include a timezone")
+        if self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be later than starts_at")
+        return self
+
+
+class EmailDraftActionInput(StrictModel):
+    organization_id: OpaqueId
+    action_id: OpaqueId
+    recipient: Annotated[str, Field(min_length=3, max_length=320)]
+    subject: Annotated[str, Field(min_length=1, max_length=300)]
+    body_text: Annotated[str, Field(min_length=1, max_length=10_000)]
+    receipt_channel_id: OpaqueId | None = None
+
+    @field_validator("recipient")
+    @classmethod
+    def validate_recipient(cls, value: str) -> str:
+        local, separator, domain = value.rpartition("@")
+        if not separator or not local or "." not in domain or any(char.isspace() for char in value):
+            raise ValueError("recipient must be a valid email address")
+        return value
+
+
+class FormQuestion(StrictModel):
+    title: Annotated[str, Field(min_length=1, max_length=300)]
+    required: bool = False
+
+
+class FormActionInput(StrictModel):
+    organization_id: OpaqueId
+    action_id: OpaqueId
+    title: Annotated[str, Field(min_length=1, max_length=300)]
+    questions: Annotated[list[FormQuestion], Field(min_length=1, max_length=20)]
+    receipt_channel_id: OpaqueId | None = None
+
+
+class ExecutionReceipt(StrictModel):
+    organization_id: OpaqueId
+    action_id: OpaqueId
+    tool_name: str
+    provider: ExecutionProvider
+    external_resource_id: Annotated[str, Field(min_length=1, max_length=500)]
+    external_url: Annotated[str, Field(min_length=1, max_length=2000)] | None = None
+    status: ExecutionStatus
+    reversible: bool
+    executed_at: datetime
+    undo_expires_at: datetime | None = None
+    undo_url: Annotated[str, Field(min_length=1, max_length=3000)] | None = None
+
+
+class UndoResult(StrictModel):
+    organization_id: OpaqueId
+    action_id: OpaqueId
+    status: ExecutionStatus
+    undone_at: datetime

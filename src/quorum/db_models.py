@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     DateTime,
     Float,
@@ -183,6 +184,7 @@ class ActionDecisionRow(Base):
     requested_by_id: Mapped[str] = mapped_column(String(200), nullable=False)
     action_class: Mapped[str] = mapped_column(String(40), nullable=False)
     tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    arguments_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     risk_score: Mapped[int] = mapped_column(Integer, nullable=False)
     risk_tier: Mapped[str] = mapped_column(String(20), nullable=False)
     risk_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
@@ -232,3 +234,78 @@ class InterruptEventRow(Base):
     participant_id: Mapped[str] = mapped_column(String(200), nullable=False)
     event_type: Mapped[str] = mapped_column(String(20), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ActionExecutionRow(Base):
+    __tablename__ = "action_executions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "action_id"],
+            ["action_decisions.organization_id", "action_decisions.action_id"],
+            name="fk_action_execution_decision",
+        ),
+        CheckConstraint(
+            "status IN ('in_progress', 'executed', 'failed', 'uncertain', "
+            "'undoing', 'undone', 'undo_failed')",
+            name="ck_action_execution_status",
+        ),
+    )
+
+    organization_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    action_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    arguments_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_resource_id: Mapped[str | None] = mapped_column(String(500))
+    external_url: Mapped[str | None] = mapped_column(String(2000))
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    reversible: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    undo_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    undone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    receipt_channel_id: Mapped[str | None] = mapped_column(String(200))
+    receipt_message_ts: Mapped[str | None] = mapped_column(String(100))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class UndoTokenRow(Base):
+    __tablename__ = "undo_tokens"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "action_id"],
+            ["action_executions.organization_id", "action_executions.action_id"],
+            name="fk_undo_token_execution",
+        ),
+    )
+
+    token_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    action_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ExecutionEventRow(Base):
+    __tablename__ = "execution_events"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "action_id"],
+            ["action_executions.organization_id", "action_executions.action_id"],
+            name="fk_execution_event_execution",
+        ),
+        CheckConstraint(
+            "event_type IN ('started', 'executed', 'failed', 'uncertain', "
+            "'undo_started', 'undone', 'undo_failed', 'receipt_sent', 'receipt_failed')",
+            name="ck_execution_event_type",
+        ),
+    )
+
+    event_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    action_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    detail_code: Mapped[str | None] = mapped_column(String(100))

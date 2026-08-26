@@ -47,6 +47,7 @@ def make_request(
         impact_radius=impact_radius,
         money_impact=money_impact,
         candidate_decider_ids=deciders or ["person_a", "person_b", "person_c"],
+        action_arguments={},
         requested_at=NOW,
     )
 

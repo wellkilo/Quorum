@@ -4,6 +4,7 @@ import unittest
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock
 
 from alembic import command
 from alembic.config import Config
@@ -18,6 +19,7 @@ from quorum.decision_graph import (
     decision_from_result,
 )
 from quorum.decision_store import DecisionPolicyStore
+from quorum.execution import ActionExecutionService
 from quorum.models import (
     ActionRequest,
     DecisionStatus,
@@ -45,6 +47,7 @@ def make_request() -> ActionRequest:
         impact_radius=ImpactRadius.INDIVIDUAL,
         money_impact=MoneyImpact.NONE,
         candidate_decider_ids=["person_a"],
+        action_arguments={},
         requested_at=datetime(2026, 8, 26, 10, tzinfo=UTC),
     )
 
@@ -110,6 +113,28 @@ class DecisionGraphTest(unittest.TestCase):
         decision = decision_from_result(decision_result)
         self.assertIs(decision.status, DecisionStatus.AWAITING_APPROVAL)
         self.assertEqual(decision.selected_decider_ids, ["person_a"])
+
+    def test_executor_registers_only_the_three_reversible_stage_three_tools(self) -> None:
+        model = build_bedrock_model(BedrockSettings(region_name="us-west-2"))
+        execution_service = MagicMock(spec=ActionExecutionService)
+
+        graph = build_decision_graph(
+            self.store,
+            model=model,
+            execution_service=execution_service,
+        )
+
+        executor = graph.nodes["executor"].executor
+        self.assertIsInstance(executor, Agent)
+        self.assertEqual(
+            executor.tool_names,
+            [
+                "calendar_create_tentative_event",
+                "gmail_create_draft",
+                "forms_create_response_request",
+            ],
+        )
+        self.assertTrue(executor.hooks.has_callbacks())
 
 
 if __name__ == "__main__":

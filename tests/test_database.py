@@ -88,6 +88,7 @@ class DatabaseSettingsTest(unittest.TestCase):
         self.assertTrue((script_path / "env.py").is_file())
         self.assertTrue((script_path / "versions" / "20260826_0001_commitment_ledger.py").is_file())
         self.assertTrue((script_path / "versions" / "20260826_0002_decision_policy.py").is_file())
+        self.assertTrue((script_path / "versions" / "20260827_0003_action_execution.py").is_file())
 
     def test_defaults_to_local_sqlite(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
@@ -136,6 +137,11 @@ class DatabaseSettingsTest(unittest.TestCase):
         self.assertIn("BEFORE UPDATE OR DELETE ON commitment_events", ddl)
         self.assertIn("quorum_reject_interrupt_event_mutation", ddl)
         self.assertIn("BEFORE UPDATE OR DELETE ON interrupt_events", ddl)
+        self.assertIn("CREATE TABLE action_executions", ddl)
+        self.assertIn("CREATE TABLE undo_tokens", ddl)
+        self.assertIn("CREATE TABLE execution_events", ddl)
+        self.assertIn("quorum_reject_execution_event_mutation", ddl)
+        self.assertIn("BEFORE UPDATE OR DELETE ON execution_events", ddl)
         self.assertIn("CREATE TABLE autonomy_profiles", ddl)
         self.assertIn("CREATE TABLE action_decisions", ddl)
         self.assertIn("CREATE TABLE interrupt_events", ddl)
@@ -174,14 +180,17 @@ class DatabaseLedgerTest(unittest.TestCase):
             set(inspect(self.engine).get_table_names()),
             {
                 "action_decisions",
+                "action_executions",
                 "alembic_version",
                 "autonomy_profiles",
                 "commitment_events",
                 "commitments",
+                "execution_events",
                 "interrupt_budget_accounts",
                 "interrupt_events",
                 "organizations",
                 "processed_messages",
+                "undo_tokens",
             },
         )
         foreign_keys = inspect(self.engine).get_foreign_keys("commitment_events")
@@ -205,14 +214,17 @@ class DatabaseLedgerTest(unittest.TestCase):
             set(inspect(self.engine).get_table_names()),
             {
                 "action_decisions",
+                "action_executions",
                 "alembic_version",
                 "autonomy_profiles",
                 "commitment_events",
                 "commitments",
+                "execution_events",
                 "interrupt_budget_accounts",
                 "interrupt_events",
                 "organizations",
                 "processed_messages",
+                "undo_tokens",
             },
         )
 

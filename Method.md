@@ -1,8 +1,10 @@
 # Quorum Method and SDK Contract
 
-Status: phase-two executable contract based on `strands-agents==1.53.0`,
-`pydantic==2.12.5`, `SQLAlchemy==2.0.52`, `Alembic==1.19.1`, and psycopg 3 for PostgreSQL. AgentCore
-remains a verified design contract until credentials and deployment are available.
+Status: phase-three executable contract based on `strands-agents==1.53.0`,
+`pydantic==2.12.5`, `SQLAlchemy==2.0.52`, `Alembic==1.19.1`,
+`google-api-python-client==2.199.0`, `google-auth==2.57.0`, `slack-sdk==3.43.0`, and psycopg 3 for
+PostgreSQL. AgentCore remains a verified design contract until credentials and deployment are
+available.
 
 ## Strands Graph
 
@@ -15,6 +17,7 @@ from strands.multiagent import GraphBuilder
 
 from quorum.autonomy_hook import QuorumAutonomyGate
 from quorum.decision_graph import DeterministicQuorumRouterNode, DeterministicRiskNode
+from quorum.executor_tools import build_executor_tools
 
 model = BedrockModel(
     model_id=selected_model_id,
@@ -34,7 +37,7 @@ risk_appraiser = DeterministicRiskNode()
 quorum_router = DeterministicQuorumRouterNode(decision_store)
 executor = Agent(
     model=model,
-    tools=[execute_approved_action],
+    tools=build_executor_tools(execution_service),
     hooks=[QuorumAutonomyGate(decision_store)],
 )
 builder = GraphBuilder()
@@ -65,8 +68,10 @@ PostgreSQL in production; it stores structured ledger facts, not raw messages.
 `ActionRequest` is supplied under `invocation_state["quorum_action_request"]`. The Risk Appraiser
 and Quorum Router intentionally implement the Strands node invocation interface without using a
 model. The router persists and returns a typed `PolicyDecision`. The Executor remains model-backed,
-but its consequential tool boundary is independently enforced by the native hook. The current tool
-returns `authorized_dry_run`; this milestone proves authorization, not an external side effect.
+but its consequential tool boundary is independently enforced by the native hook. When an
+`ActionExecutionService` is supplied, the Executor registers only the three reversible phase-three
+tools. A dry-run tool remains available only when the graph is deliberately built without that
+service for local authorization tests.
 
 The five-node structure and deterministic policy nodes are tested without a model request. A live
 Bedrock end-to-end invocation is not claimed until credentials and an explicit region are available.
@@ -121,6 +126,17 @@ Irreversible actions cannot be undone. Timeout resolution runs under the same de
 late response cannot authorize an expired action; only nonresponding participants receive an
 `expired` audit event. The interrupt event table has database triggers rejecting update and delete
 operations.
+
+The third migration binds decisions to canonical action-argument fingerprints and adds:
+
+- `action_executions`: one idempotent provider execution per tenant-scoped action;
+- `undo_tokens`: only SHA-256 token digests, expiry, and atomic consumption state;
+- `execution_events`: append-only started, executed, uncertain, receipt, and undo transitions.
+
+Action arguments are never persisted. `ExecutionStore.start()` locks the policy decision and checks
+the tool, normalized argument fingerprint, executable state, provider identity, and reversibility
+before a provider adapter is called. Exact successful retries return the prior receipt. Failed or
+uncertain executions are not retried automatically.
 
 ```bash
 export QUORUM_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:5432/quorum?sslmode=require'
@@ -204,8 +220,39 @@ Each callback can contribute one native interrupt, and Strands aggregates callba
 multi-person interrupt set. On resume, each response is persisted and accumulated until the required
 quorum is reached. The production implementation also fails closed for missing policy, mismatched
 tools, rejected, expired, deferred, and undone actions. A plain model-generated approval is never
-sufficient. Tests exercise both initial interruption and two-person resume through a real
+sufficient. The hook also hashes the actual tool input after excluding only `organization_id` and
+`action_id`; a model cannot alter a recipient, message, title, date, or question after approval.
+Tests exercise argument tampering, initial interruption, and two-person resume through a real
 `HookRegistry`.
+
+## Google Workspace execution
+
+The adapters use Application Default Credentials with only these requested scopes:
+
+- `calendar.events` for tentative event create/delete;
+- `gmail.compose` for draft create/delete, never send;
+- `forms.body` for form create/configure;
+- `drive.file` for deleting the form created by Quorum.
+
+The Calendar adapter calls `events().insert(calendarId="primary", sendUpdates="none", ...)` and
+marks the event tentative. Gmail builds an RFC 2822 plain-text message, base64url encodes it, and
+calls `users().drafts().create(userId="me", ...)`. Forms calls `forms().create(...)`, then
+`forms().batchUpdate(...)`; if configuration fails, it attempts a compensating Drive delete. Tests
+replace only the HTTP boundary and assert these exact SDK method names and payloads.
+
+Provider failures expose stable codes without credentials or content. Transport failures, 5xx
+responses, malformed responses, and successful-looking responses without a resource ID are marked
+outcome-uncertain. Quorum does not automatically retry those calls because doing so could duplicate
+an external side effect.
+
+## Signed undo
+
+`UndoTokenSigner` signs canonical organization, action, expiry, and version claims with HMAC-SHA256.
+The secret must contain at least 32 bytes. Tokens expire after 24 hours; only a SHA-256 digest is
+stored. `ExecutionStore.reserve_undo()` locks and consumes the token and moves the execution to
+`undoing` before calling the relevant Calendar, Gmail, or Drive delete operation. Success records an
+append-only `undone` event and lowers autonomy one level. A failed compensation is recorded as
+`undo_failed` and is not disguised as success.
 
 ## AgentCore Runtime
 
@@ -244,13 +291,14 @@ Namespaces must separate organization, actor, and session scope. Only redacted d
 
 ## AgentCore Gateway
 
-Gateway exposes narrow MCP tools rather than a single unrestricted executor. Planned tool families:
+Gateway will expose the same narrow contracts rather than a single unrestricted executor. The
+provider-backed local Strands tools are implemented; Gateway publication is still planned:
 
 - `calendar.create_tentative_event` / `calendar.cancel_event`;
 - `email.create_draft` / `email.discard_draft`;
 - `form.create_response_request` / `form.close_response_request`.
 
-Every mutating tool returns an `action_id`, reversibility class, undo deadline, and provider receipt. Tool targets will be implemented against real APIs only after credentials and scopes are available.
+Every mutating tool returns an action identity, undo deadline, provider resource ID, and receipt.
 
 ## OpenTelemetry
 
@@ -258,11 +306,12 @@ AgentCore Observability uses ADOT/OpenTelemetry. Required correlation attributes
 
 ## Slack Web API methods
 
-The initial real channel requires these Slack capabilities:
+The outbound adapter implements these Slack Web API methods:
 
-- Events API callback for `message.channels`;
-- `chat.postMessage` for group receipts and weekly summary;
+- `chat.postMessage` for the one-line group receipt;
 - `conversations.open` followed by `chat.postMessage` for a private question;
-- Block Kit interactive action callback for approve, reject, edit, and undo.
+- Block Kit URL buttons for Open and Undo.
 
-Exact OAuth scopes and Slack app manifest will be recorded and tested before the integration is claimed as working.
+The required outbound bot scopes are `chat:write` and `im:write`. Slack Events ingestion, interactive
+callback acknowledgement, the weekly summary, and a live credentialed workspace test remain the
+deployment milestone and are not claimed as complete.

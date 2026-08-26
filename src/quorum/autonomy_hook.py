@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from strands.hooks import BeforeToolCallEvent, HookRegistry
+from strands.interrupt import InterruptException
 
 from quorum.models import (
     DecisionStatus,
@@ -14,6 +16,8 @@ from quorum.models import (
     ParticipantResponse,
     PolicyDecision,
 )
+from quorum.policy import fingerprint_action_arguments
+from quorum.slack import SlackDeliveryError, SlackNotifier
 
 POLICY_INVOCATION_STATE_KEY = "quorum_policy_decision"
 MAX_QUORUM_SIZE = 10
@@ -42,9 +46,11 @@ class QuorumAutonomyGate:
         self,
         resolver: InterruptResolver | None = None,
         *,
+        question_sender: SlackNotifier | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._resolver = resolver
+        self._question_sender = question_sender
         self._clock = clock or (lambda: datetime.now(UTC))
 
     def register_hooks(self, registry: HookRegistry, **_kwargs: Any) -> None:
@@ -63,6 +69,14 @@ class QuorumAutonomyGate:
             if event.tool_use["name"] != decision.tool_name:
                 event.cancel_tool = "Tool call does not match the authorized action"
                 return
+            tool_arguments = {
+                key: value
+                for key, value in event.tool_use.get("input", {}).items()
+                if key not in {"organization_id", "action_id"}
+            }
+            if fingerprint_action_arguments(tool_arguments) != decision.arguments_fingerprint:
+                event.cancel_tool = "Tool arguments do not match the authorized action"
+                return
             if decision.status in {DecisionStatus.AUTHORIZED, DecisionStatus.APPROVED}:
                 return
             if decision.status is not DecisionStatus.AWAITING_APPROVAL:
@@ -72,19 +86,28 @@ class QuorumAutonomyGate:
                 return
 
             participant_id = decision.selected_decider_ids[slot]
-            response = event.interrupt(
-                f"quorum-approval-{slot}",
-                reason={
-                    "action_id": decision.action_id,
-                    "participant_id": participant_id,
-                    "risk_tier": decision.risk.tier.value,
-                    "required_quorum": decision.required_quorum,
-                    "timeout_at": (
-                        decision.timeout_at.isoformat() if decision.timeout_at is not None else None
-                    ),
-                    "timeout_default": decision.timeout_default.value,
-                },
-            )
+            try:
+                response = event.interrupt(
+                    f"quorum-approval-{slot}",
+                    reason={
+                        "action_id": decision.action_id,
+                        "participant_id": participant_id,
+                        "risk_tier": decision.risk.tier.value,
+                        "required_quorum": decision.required_quorum,
+                        "timeout_at": (
+                            decision.timeout_at.isoformat()
+                            if decision.timeout_at is not None
+                            else None
+                        ),
+                        "timeout_default": decision.timeout_default.value,
+                    },
+                )
+            except InterruptException:
+                if self._question_sender is not None:
+                    # The native interrupt remains authoritative even if Slack delivery fails.
+                    with suppress(SlackDeliveryError):
+                        self._question_sender.send_private_question(participant_id, decision)
+                raise
             approved = _response_approved(response)
             if self._resolver is not None:
                 resolution_status = self._resolver.resolve(

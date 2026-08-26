@@ -12,7 +12,7 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 ## Status
 
-Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, a deterministic risk and routing policy, a Strands-native hook interrupt autonomy gate, transactional SQLite/PostgreSQL persistence, Alembic migrations, and a 50-case synthetic evaluation suite. The Slack and AWS production paths are not yet claimed as deployed.
+Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, Slack receipts and private questions, transactional SQLite/PostgreSQL persistence, signed single-use undo, Alembic migrations, and a 50-case synthetic evaluation suite. Live Slack, Google Workspace, and AWS production calls are not yet claimed because credentials are not configured in this development environment.
 
 No real organization data, user quote, impact result, live-demo URL, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
 
@@ -34,6 +34,15 @@ uv run mypy src/quorum
 The Graph constructor uses the installed `strands-agents==1.53.0` package. It can be built without
 making a model request. Online extraction requires an explicitly selected AWS region and valid
 credentials through the standard boto3 credential chain; Quorum does not guess a region.
+
+Google Workspace execution uses Application Default Credentials. Slack delivery uses a bot token,
+and undo URLs require a secret of at least 32 bytes. Keep all three outside source control:
+
+```bash
+export QUORUM_UNDO_SIGNING_SECRET='<at-least-32-random-bytes>'
+export QUORUM_PUBLIC_BASE_URL='https://your-public-origin.example'
+export QUORUM_SLACK_BOT_TOKEN='<injected-secret>'
+```
 
 ## The four mechanisms
 
@@ -104,12 +113,20 @@ budget. All pending decisions have a 24-hour timeout. Low-risk timeouts may exec
 medium- and high-risk timeouts expire without action. Three consecutive approvals raise autonomy by
 one level; a rejection or undo lowers it by one.
 
-`DatabaseLedger` and `DecisionPolicyStore` use SQLite for zero-setup local development and PostgreSQL
-with psycopg 3 for the production path. Both use the same SQLAlchemy domain implementation and
-Alembic schema. Decision IDs are idempotent, mutable policy rows are transactionally locked, all
-queries are tenant-scoped, and interrupt evidence is append-only. Raw message text is not stored in
-these tables. The current executor intentionally returns an `authorized_dry_run` receipt; real
-calendar, email, and form side effects belong to the next milestone.
+`DatabaseLedger`, `DecisionPolicyStore`, and `ExecutionStore` use SQLite for zero-setup local
+development and PostgreSQL with psycopg 3 for the production path. They share one SQLAlchemy domain
+implementation and Alembic schema. Decision and execution IDs are idempotent, mutable rows are
+transactionally locked, all queries are tenant-scoped, and interrupt and execution evidence are
+append-only. Raw messages and action arguments are not stored; only canonical SHA-256 fingerprints,
+opaque provider resource IDs, safe status codes, and timestamps are retained.
+
+The Executor exposes three real Strands tools: a tentative Calendar event, a Gmail draft that is
+never sent, and a Google Form response request. The native autonomy hook verifies the persisted tool
+name and canonical argument fingerprint before any provider call. Successful execution produces one
+Slack line with Open and Undo buttons. Undo tokens are HMAC-SHA256 signed, expire after 24 hours, are
+stored only as digests, and are atomically consumed before the provider resource is deleted. An undo
+also lowers earned autonomy. Transport errors and ambiguous provider responses become `uncertain`
+and are never retried automatically, preventing duplicate external side effects.
 
 Runtime session identifiers, session-state persistence, and long-term memory are separate concerns:
 
@@ -164,6 +181,8 @@ Impact evidence will compare the same week under two conditions and report messa
 - Raw chat exports are processed locally and are ignored by Git.
 - PII is redacted before data enters model, storage, logs, or evaluation artifacts.
 - The business database stores opaque identifiers and source references, never raw message text.
+- Action payloads such as email recipients, bodies, subjects, event titles, and form questions are
+  fingerprinted for authorization but are not persisted in the business database.
 - Logs contain opaque identifiers, counters, and trace IDs, never raw message text.
 - Every ledger row requires a source-message reference.
 - Money, broad-impact, or hard-to-reverse actions require an interrupt or sufficient quorum.
@@ -195,8 +214,12 @@ Do not reuse a published example key for real data. The key must never be commit
 - PostgreSQL DDL is compiled and asserted in tests, while the repository's integration suite runs
   against SQLite. A live PostgreSQL network integration result will only be claimed after a
   dedicated test endpoint is available.
-- The current executor is a non-mutating authorization receipt. Calendar, email, and form actions
-  will be enabled only after their real SDK or MCP contracts and undo behavior are tested.
+- Google Calendar, Gmail Draft, Google Forms, and Slack adapters use their real SDK method contracts,
+  but tests replace only the network boundary. No live external API result is claimed yet.
+- The signed undo service is implemented, but the public HTTP handler behind the generated undo URL
+  remains part of the deployment milestone.
+- The three tools currently run as local Strands tools. Publishing the same narrow contracts through
+  AgentCore Gateway remains part of the AgentCore deployment milestone.
 
 ## Reuse and AI assistance disclosure
 
@@ -214,6 +237,10 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Deterministic risk rubric, Autonomy Ladder, minimum-quorum routing, and 24-hour defaults
 - [x] Rolling seven-day, two-interrupt-per-person budget with append-only evidence
 - [x] Strands-native `BeforeToolCallEvent` / `event.interrupt()` autonomy gate
+- [x] Tool-name and canonical-argument binding between approval and execution
+- [x] Reversible Google Calendar, Gmail Draft, and Google Forms SDK adapters
+- [x] Idempotent execution receipts, append-only audit, and signed single-use 24-hour undo
+- [x] Slack one-line group receipt and one-question direct-message adapters
 - [x] 50-case synthetic gold set and executable metric pipeline
 - [ ] Bedrock model evaluation result
 - [ ] AgentCore Runtime, Memory, Gateway, and OTEL traces

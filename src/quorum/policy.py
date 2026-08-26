@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 
 from quorum.models import (
     ActionRequest,
@@ -40,6 +42,19 @@ _MONEY_POINTS = {
     MoneyImpact.BUDGETED: 1,
     MoneyImpact.UNBUDGETED: 3,
 }
+
+
+def fingerprint_action_arguments(arguments: Mapping[str, object]) -> str:
+    """Hash canonical JSON so a model cannot change approved tool arguments at execution time."""
+
+    normalized = {key: value for key, value in arguments.items() if value is not None}
+    encoded = json.dumps(
+        normalized,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return sha256(encoded).hexdigest()
 
 
 def assess_risk(request: ActionRequest) -> RiskAssessment:
@@ -134,6 +149,7 @@ def plan_policy_decision(
         requested_by_id=request.requested_by_id,
         action_class=request.action_class,
         tool_name=request.tool_name,
+        arguments_fingerprint=fingerprint_action_arguments(request.action_arguments),
         risk=risk,
         autonomy=autonomy,
         required_quorum=required_quorum,

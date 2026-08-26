@@ -29,6 +29,7 @@ from quorum.models import (
     TaskClass,
     TimeoutDefault,
 )
+from quorum.policy import fingerprint_action_arguments
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,6 +43,7 @@ def make_decision(
         requested_by_id="person_requester",
         action_class=TaskClass.EVENT_DECISION,
         tool_name=tool_name,
+        arguments_fingerprint=fingerprint_action_arguments({"title": "Planning"}),
         risk=RiskAssessment(
             score=0,
             tier=RiskTier.LOW,
@@ -135,6 +137,17 @@ class QuorumAutonomyGateTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(updated.cancel_tool, "Tool call does not match the authorized action")
         self.assertEqual(interrupts, [])
 
+    async def test_argument_mismatch_cancels_tool(self) -> None:
+        registry = HookRegistry()
+        registry.add_hook(QuorumAutonomyGate())
+        event = make_event(make_decision(status=DecisionStatus.AUTHORIZED, selected=[]))
+        event.tool_use["input"]["title"] = "Changed after approval"
+
+        updated, interrupts = await registry.invoke_callbacks_async(event)
+
+        self.assertEqual(updated.cancel_tool, "Tool arguments do not match the authorized action")
+        self.assertEqual(interrupts, [])
+
     async def test_two_person_quorum_uses_two_native_interrupts(self) -> None:
         registry = HookRegistry()
         registry.add_hook(QuorumAutonomyGate())
@@ -152,6 +165,25 @@ class QuorumAutonomyGateTest(unittest.IsolatedAsyncioTestCase):
             {interrupt.reason["participant_id"] for interrupt in interrupts},
             {"person_a", "person_b"},
         )
+
+    async def test_private_question_is_sent_once_before_native_interrupt(self) -> None:
+        sender = Mock()
+        sender.send_private_question.return_value = "1780000000.000100"
+        registry = HookRegistry()
+        registry.add_hook(QuorumAutonomyGate(question_sender=sender))
+        event = make_event(
+            make_decision(status=DecisionStatus.AWAITING_APPROVAL, selected=["person_a"])
+        )
+
+        _, interrupts = await registry.invoke_callbacks_async(event)
+        sender.send_private_question.assert_called_once()
+        event.agent._interrupt_state.interrupts[interrupts[0].id].response = "approve"
+
+        updated, resumed_interrupts = await registry.invoke_callbacks_async(event)
+
+        self.assertEqual(resumed_interrupts, [])
+        self.assertFalse(updated.cancel_tool)
+        sender.send_private_question.assert_called_once()
 
     async def test_resumed_rejection_cancels_tool(self) -> None:
         resolver = Mock()
@@ -202,6 +234,7 @@ class QuorumAutonomyGateTest(unittest.IsolatedAsyncioTestCase):
                         impact_radius=ImpactRadius.EXTERNAL,
                         money_impact=MoneyImpact.NONE,
                         candidate_decider_ids=["person_a", "person_b"],
+                        action_arguments={"title": "Planning"},
                         requested_at=datetime(2026, 8, 26, 10, tzinfo=UTC),
                     ),
                     now=datetime(2026, 8, 26, 10, tzinfo=UTC),
