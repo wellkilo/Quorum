@@ -158,3 +158,4 @@ class RejectedCandidate(StrictModel):
 class LedgerChangeSet(StrictModel):
     upserted: list[LedgerItem] = Field(default_factory=list)
     rejected: list[RejectedCandidate] = Field(default_factory=list)
+    duplicate_event: bool = False

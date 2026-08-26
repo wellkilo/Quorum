@@ -1,8 +1,8 @@
 # Quorum Method and SDK Contract
 
-Status: phase-one executable contract based on `strands-agents==1.53.0` and
-`pydantic==2.12.5`. AgentCore remains a verified design contract until credentials and deployment
-are available.
+Status: phase-one executable contract based on `strands-agents==1.53.0`,
+`pydantic==2.12.5`, `SQLAlchemy==2.0.52`, `Alembic==1.19.1`, and psycopg 3 for PostgreSQL. AgentCore
+remains a verified design contract until credentials and deployment are available.
 
 ## Strands Graph
 
@@ -43,11 +43,57 @@ older `Agent.structured_output()` helper is deprecated and is not used.
 
 No candidate is persisted unless its `source_message_ref` equals the current event reference and its
 `evidence_quote` is a verbatim substring of the current message. This invariant is implemented in
-ordinary typed code after model extraction. The local durable store is SQLite and stores structured
-ledger rows, not raw messages.
+ordinary typed code after model extraction. The durable business store uses SQLite locally and
+PostgreSQL in production; it stores structured ledger facts, not raw messages.
 
 The planned phase-two extension adds `Risk Appraiser -> Quorum Router -> Executor` without changing
 the phase-one event or extraction contracts.
+
+## Business persistence
+
+`DatabaseLedger` is the single SQLAlchemy implementation for SQLite and PostgreSQL. SQLite is the
+zero-setup development and CI backend; production uses psycopg 3 with
+`postgresql+psycopg://`. Deployed schema changes must run through Alembic and never through
+`Base.metadata.create_all()`.
+
+```text
+Graph extraction
+  -> deterministic evidence gate
+  -> transaction
+  -> processed_messages idempotency claim
+  -> tenant-scoped commitment row lock/upsert
+  -> append-only commitment_event
+  -> commit
+```
+
+The initial migration creates four tables:
+
+- `organizations`: opaque tenant identity;
+- `processed_messages`: canonical-message fingerprint and idempotency claim, without raw text;
+- `commitments`: current tenant-scoped business state with a monotonic version;
+- `commitment_events`: immutable snapshots for create, update, and cancel operations.
+
+Each audit event has composite foreign keys to both its tenant-scoped commitment and its processed
+source-message record, so an audit entry cannot exist without both business and evidence anchors.
+
+PostgreSQL uses `JSONB`, timezone-aware timestamps, composite tenant keys, and
+`SELECT ... FOR UPDATE` for mutable targets. Message claims use
+`INSERT ... ON CONFLICT DO NOTHING RETURNING`; an exact retry is a no-op, while the same identity
+with a different fingerprint raises `IdempotencyConflictError`. The migration installs a database
+trigger that rejects `UPDATE` and `DELETE` on `commitment_events`. SQLite receives equivalent
+triggers so the local test contract matches the production invariant.
+
+```bash
+export QUORUM_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:5432/quorum?sslmode=require'
+uv run quorum-db upgrade
+uv run quorum-db current
+uv run quorum-db check
+```
+
+PostgreSQL holds authoritative business facts only. It does not replace the Runtime session ID, a
+Strands session manager, or AgentCore Memory. Production connections set an application name, UTC,
+a 15-second statement timeout, a 5-second lock timeout, health checks, and parameter redaction.
+Credentials belong in a secret manager or deployment environment, never in source control.
 
 ## Bedrock model evaluation
 

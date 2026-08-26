@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-uv sync --extra dev --locked
-uv run ruff format --check src tests scripts
-uv run ruff check src tests scripts
+uv sync --extra dev --extra postgres --locked
+uv run ruff format --check src migrations tests scripts
+uv run ruff check src migrations tests scripts
 uv run mypy src/quorum
 uv run python -m unittest discover -s tests -v
 uv run quorum-validate-gold

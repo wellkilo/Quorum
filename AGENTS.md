@@ -35,7 +35,7 @@ Slack event
   -> session state, AgentCore Memory, and OTEL trace
 ```
 
-Runtime session identity, Strands session persistence, and AgentCore long-term memory must remain separate in code and documentation.
+Runtime session identity, Strands session persistence, AgentCore long-term memory, and the PostgreSQL business-fact ledger must remain separate in code and documentation.
 
 ## Quality gates
 
@@ -54,6 +54,7 @@ Runtime session identity, Strands session persistence, and AgentCore long-term m
 - Public fixtures use `data_classification: synthetic`.
 - Real and synthetic metrics must never be combined.
 - A quotation cannot be published without explicit approval of its final wording.
+- SQLite is the local business store; PostgreSQL with Alembic migrations is the production business store. Neither is a substitute for AgentCore Memory.
 
 ## Definition of done for a feature
 

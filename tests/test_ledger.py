@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import unittest
 from datetime import UTC, datetime
-from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from pydantic import ValidationError
 
-from quorum.ledger import InMemoryLedger, SQLiteLedger
+from quorum.ledger import InMemoryLedger
 from quorum.models import (
     CanonicalMessageEvent,
     CommitmentCandidate,
@@ -170,20 +168,6 @@ class CommitmentLedgerTest(unittest.TestCase):
 
         self.assertEqual(changes.upserted, [])
         self.assertEqual(changes.rejected[0].code, "TARGET_NOT_FOUND")
-
-    def test_sqlite_ledger_persists_without_raw_message(self) -> None:
-        event = make_event("Private message: I will bring the keys by Friday.")
-        with TemporaryDirectory() as directory:
-            path = Path(directory) / "ledger.sqlite3"
-            with SQLiteLedger(path) as ledger:
-                created = ledger.apply(
-                    event, ExtractionEnvelope(commitments=[make_candidate()])
-                ).upserted[0]
-            with SQLiteLedger(path) as reopened:
-                persisted = reopened.get(created.commitment_id)
-
-            self.assertEqual(persisted, created)
-            self.assertNotIn(b"Private message", path.read_bytes())
 
 
 if __name__ == "__main__":

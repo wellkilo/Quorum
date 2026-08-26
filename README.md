@@ -12,7 +12,7 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 ## Status
 
-Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, a real Strands `Listener -> Ledger Curator` Graph constructor, a deterministic source-evidence gate, local SQLite persistence, and a 50-case synthetic evaluation suite. The Slack and AWS production paths are not yet claimed as deployed.
+Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, a real Strands `Listener -> Ledger Curator` Graph constructor, a deterministic source-evidence gate, transactional SQLite/PostgreSQL persistence, Alembic migrations, and a 50-case synthetic evaluation suite. The Slack and AWS production paths are not yet claimed as deployed.
 
 No real organization data, user quote, impact result, live-demo URL, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
 
@@ -21,11 +21,13 @@ No real organization data, user quote, impact result, live-demo URL, or Bedrock 
 Python 3.11–3.13 and [`uv`](https://docs.astral.sh/uv/) are required.
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev --extra postgres
+uv run quorum-db upgrade
+uv run quorum-db check
 uv run quorum-validate-gold
 uv run python -m unittest discover -s tests -v
-uv run ruff format --check src tests scripts
-uv run ruff check src tests scripts
+uv run ruff format --check src migrations tests scripts
+uv run ruff check src migrations tests scripts
 uv run mypy src/quorum
 ```
 
@@ -54,6 +56,7 @@ Quorum does not ask a community to adopt another application. Its complete inter
 flowchart LR
     Slack[Slack Events API] --> Listener[Listener]
     Listener --> Ledger[Ledger Curator]
+    Ledger --> BusinessDB[(Commitment Ledger DB)]
     Ledger --> Risk[Risk Appraiser]
     Risk --> Router[Minimum-Quorum Router]
     Router --> Gate{Autonomy Hook}
@@ -64,8 +67,8 @@ flowchart LR
     Gateway --> Tools[Calendar, email, and form tools]
     Executor --> Receipt[Group receipt + undo]
 
-    Ledger <--> Session[Strands Session Manager]
-    Ledger <--> Memory[AgentCore Memory]
+    Listener <--> Session[Strands Session Manager]
+    Router <--> Memory[AgentCore Memory]
     Listener -. OTEL .-> Observe[AgentCore Observability]
     Executor -. OTEL .-> Observe
     Ambiguity[Strands Swarm] -. semantic ambiguity only .-> Ledger
@@ -82,18 +85,42 @@ Strands Swarm is intentionally excluded from routine orchestration. It is reserv
 The phase-one executable graph implements the first edge only:
 
 ```text
-CanonicalMessageEvent -> Listener -> Ledger Curator -> evidence gate -> SQLite Ledger
+CanonicalMessageEvent -> Listener -> Ledger Curator -> evidence gate -> DatabaseLedger
 ```
 
 The Listener prevents pure chatter from reaching extraction. The Curator uses Pydantic structured
 output. A deterministic validator then rejects any candidate whose `source_message_ref` differs
 from the current event or whose `evidence_quote` is not a verbatim substring of that event.
+`DatabaseLedger` uses SQLite for zero-setup local development and PostgreSQL with psycopg 3 for the
+production path. Both use the same SQLAlchemy domain implementation and Alembic schema. Each message
+is claimed idempotently, each commitment mutation is tenant-scoped and transactional, and each
+accepted change writes an append-only audit event. Raw message text is not stored in these tables.
 
 Runtime session identifiers, session-state persistence, and long-term memory are separate concerns:
 
 - AgentCore Runtime identifies a runtime session.
 - A Strands session manager persists graph and conversation state.
 - AgentCore Memory stores durable organization facts and summaries.
+- PostgreSQL stores authoritative business facts, idempotency records, and the commitment audit log.
+
+These stores are complementary. PostgreSQL is not presented as AgentCore Memory, and a Runtime
+session ID is not used as a persistence mechanism.
+
+### Database configuration
+
+Without configuration, Quorum uses `sqlite+pysqlite:///./var/quorum.sqlite3`. Production must set a
+dedicated PostgreSQL URL using psycopg 3 and transport encryption:
+
+```bash
+export QUORUM_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:5432/quorum?sslmode=require'
+uv run quorum-db upgrade
+uv run quorum-db current
+uv run quorum-db check
+```
+
+Do not place credentials in `.env.example`, logs, screenshots, or committed files. The application
+hides SQL parameters and applies UTC, statement-timeout, lock-timeout, and connection-health
+settings to PostgreSQL connections.
 
 See [API.md](API.md) and [Method.md](Method.md) for the versioned contracts.
 
@@ -120,6 +147,7 @@ Impact evidence will compare the same week under two conditions and report messa
 
 - Raw chat exports are processed locally and are ignored by Git.
 - PII is redacted before data enters model, storage, logs, or evaluation artifacts.
+- The business database stores opaque identifiers and source references, never raw message text.
 - Logs contain opaque identifiers, counters, and trace IDs, never raw message text.
 - Every ledger row requires a source-message reference.
 - Money, broad-impact, or hard-to-reverse actions require an interrupt or sufficient quorum.
@@ -146,6 +174,9 @@ Do not reuse a published example key for real data. The key must never be commit
 - The current project has no recruited pilot organization and therefore no real-week impact result yet.
 - No Bedrock model score is published because this development environment has no configured AWS
   CLI, region, or credentials.
+- PostgreSQL DDL is compiled and asserted in tests, while the repository's integration suite runs
+  against SQLite. A live PostgreSQL network integration result will only be claimed after a
+  dedicated test endpoint is available.
 - Calendar, email, and form actions will be enabled only after their real SDK or MCP contracts and undo behavior are tested.
 
 ## Reuse and AI assistance disclosure
@@ -157,7 +188,8 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Public repository target and Apache-2.0 license
 - [x] English README and explicit current limitations
 - [x] Privacy-first local redaction tool and test plan
-- [x] Typed Commitment Ledger with SQLite persistence
+- [x] Typed Commitment Ledger with SQLite development and PostgreSQL production persistence
+- [x] Alembic schema, message idempotency, tenant isolation, and append-only audit events
 - [x] Real Strands Graph constructor for Listener → Ledger Curator
 - [x] Deterministic source-evidence gate
 - [x] 50-case synthetic gold set and executable metric pipeline

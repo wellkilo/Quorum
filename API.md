@@ -104,7 +104,47 @@ in the event text.
 }
 ```
 
-## 4. AgentCore Runtime invocation
+## 4. Commitment Ledger persistence result
+
+This is an internal typed boundary returned by `DatabaseLedger.apply()`, not a public HTTP endpoint.
+The call executes one transaction containing the processed-message idempotency claim, all accepted
+commitment changes, and their audit events.
+
+```json
+{
+  "upserted": [
+    {
+      "commitment_id": "cmt_opaque",
+      "organization_id": "org_opaque",
+      "task_class": "item_handoff",
+      "summary": "Bring the storage keys",
+      "owner_id": "person_opaque",
+      "due_at": "2026-08-28T17:00:00Z",
+      "status": "open",
+      "source_message_refs": ["slack:C123:1770000000.000100"],
+      "created_at": "2026-08-26T10:00:01Z",
+      "updated_at": "2026-08-26T10:00:01Z",
+      "confidence": 0.96
+    }
+  ],
+  "rejected": [],
+  "duplicate_event": false
+}
+```
+
+Retry contract:
+
+- an exact retry of the same organization and source-message reference returns
+  `duplicate_event: true` without writing another commitment or audit event;
+- reusing that identity with different canonical content raises an idempotency conflict;
+- rejected candidates return a stable rejection code and are never persisted;
+- an exception rolls back the message claim, commitment rows, and audit events together.
+
+The production database URL is supplied only through `QUORUM_DATABASE_URL`. Supported schemes are
+`postgresql+psycopg://` for production and `sqlite+pysqlite://` for local development. All reads and
+mutations require `organization_id`; this storage layer never accepts raw Slack payloads.
+
+## 5. AgentCore Runtime invocation
 
 `POST /invocations` is hosted by AgentCore Runtime through `BedrockAgentCoreApp`.
 
@@ -141,7 +181,7 @@ Response body:
 }
 ```
 
-## 5. Human interrupt resume
+## 6. Human interrupt resume
 
 The Strands interrupt response is sent back to the same logical session.
 
@@ -163,7 +203,7 @@ The Strands interrupt response is sent back to the same logical session.
 }
 ```
 
-## 6. Undo action
+## 7. Undo action
 
 `POST /actions/{action_id}/undo`
 
@@ -186,7 +226,7 @@ Response:
 
 The token must be short-lived, single-use, scoped to one action, and excluded from logs.
 
-## 7. Replay API for the public sandbox
+## 8. Replay API for the public sandbox
 
 `POST /demo/replays/synthetic-week`
 
@@ -209,7 +249,7 @@ Every replay response must state its provenance:
 }
 ```
 
-## 8. Error envelope
+## 9. Error envelope
 
 ```json
 {

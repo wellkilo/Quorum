@@ -12,25 +12,36 @@ license = { file = "LICENSE" }
 authors = [{ name = "wellkilo", email = "wellkilo@foxmail.com" }]
 dependencies = [
   "pydantic==2.12.5",
+  "sqlalchemy==2.0.52",
   "strands-agents==1.53.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+  "alembic==1.19.1",
   "mypy==1.19.1",
   "ruff==0.15.5",
+]
+postgres = [
+  "alembic==1.19.1",
+  "psycopg[binary]==3.3.4",
 ]
 runtime = [
   "bedrock-agentcore==1.22.0",
 ]
 
 [project.scripts]
+quorum-db = "quorum.database_cli:main"
 quorum-eval = "quorum.evaluation:main"
 quorum-run-model-eval = "quorum.model_eval:main"
 quorum-validate-gold = "quorum.gold:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quorum"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"alembic.ini" = "quorum/alembic.ini"
+"migrations" = "quorum/migrations"
 
 [tool.ruff]
 line-length = 100

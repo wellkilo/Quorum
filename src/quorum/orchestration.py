@@ -13,7 +13,7 @@ from strands.models.model import Model
 from strands.multiagent import GraphBuilder
 from strands.multiagent.graph import Graph, GraphResult, GraphState
 
-from quorum.ledger import SQLiteLedger
+from quorum.ledger import LedgerRepository
 from quorum.models import (
     CanonicalMessageEvent,
     ExtractionEnvelope,
@@ -136,7 +136,7 @@ def extraction_from_result(result: GraphResult) -> ExtractionEnvelope:
 
 
 def process_event(
-    graph: Graph, event: CanonicalMessageEvent, ledger: SQLiteLedger
+    graph: Graph, event: CanonicalMessageEvent, ledger: LedgerRepository
 ) -> LedgerChangeSet:
     """Run the online graph, then enforce evidence invariants before persistence."""
 
