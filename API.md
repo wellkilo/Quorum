@@ -65,7 +65,7 @@ This is an internal typed boundary, not a public HTTP endpoint.
   "actor_id": "person_opaque",
   "occurred_at": "2026-08-26T10:00:00Z",
   "text": "I can bring the keys on Friday",
-  "data_classification": "redacted-real-or-synthetic",
+  "data_classification": "redacted-real",
   "source": {
     "provider": "slack",
     "workspace_id": "workspace_opaque",
@@ -74,7 +74,37 @@ This is an internal typed boundary, not a public HTTP endpoint.
 }
 ```
 
-## 3. AgentCore Runtime invocation
+Allowed `data_classification` values are `synthetic` and `redacted-real`. Raw or unredacted data is
+not a valid Graph input.
+
+## 3. Ledger extraction output
+
+The Ledger Curator returns a typed `ExtractionEnvelope`. A candidate is rejected before storage if
+its source reference differs from the current event or its evidence quote is not present verbatim
+in the event text.
+
+```json
+{
+  "commitments": [
+    {
+      "operation": "create",
+      "task_class": "item_handoff",
+      "summary": "Bring the storage keys",
+      "owner_id": "person_opaque",
+      "due_at": "2026-08-28T17:00:00Z",
+      "target_commitment_id": null,
+      "confidence": 0.96,
+      "evidence": {
+        "source_message_ref": "slack:C123:1770000000.000100",
+        "evidence_quote": "I will bring the storage keys"
+      }
+    }
+  ],
+  "ambiguities": []
+}
+```
+
+## 4. AgentCore Runtime invocation
 
 `POST /invocations` is hosted by AgentCore Runtime through `BedrockAgentCoreApp`.
 
@@ -111,7 +141,7 @@ Response body:
 }
 ```
 
-## 4. Human interrupt resume
+## 5. Human interrupt resume
 
 The Strands interrupt response is sent back to the same logical session.
 
@@ -133,7 +163,7 @@ The Strands interrupt response is sent back to the same logical session.
 }
 ```
 
-## 5. Undo action
+## 6. Undo action
 
 `POST /actions/{action_id}/undo`
 
@@ -156,7 +186,7 @@ Response:
 
 The token must be short-lived, single-use, scoped to one action, and excluded from logs.
 
-## 6. Replay API for the public sandbox
+## 7. Replay API for the public sandbox
 
 `POST /demo/replays/synthetic-week`
 
@@ -179,7 +209,7 @@ Every replay response must state its provenance:
 }
 ```
 
-## 7. Error envelope
+## 8. Error envelope
 
 ```json
 {

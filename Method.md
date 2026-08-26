@@ -1,32 +1,70 @@
 # Quorum Method and SDK Contract
 
-Status: implementation contract based on current official Strands and Amazon Bedrock AgentCore APIs. Exact dependency versions will be pinned when the first executable agent slice is added.
+Status: phase-one executable contract based on `strands-agents==1.53.0` and
+`pydantic==2.12.5`. AgentCore remains a verified design contract until credentials and deployment
+are available.
 
 ## Strands Graph
 
-Planned Python imports and methods:
+Implemented phase-one imports and methods:
 
 ```python
 from strands import Agent
+from strands.models import BedrockModel
 from strands.multiagent import GraphBuilder
 
+model = BedrockModel(
+    model_id=selected_model_id,
+    region_name=explicit_region,
+    temperature=0.0,
+    top_p=0.1,
+)
+listener = Agent(
+    model=model,
+    structured_output_model=ListenerDecision,
+)
+ledger_curator = Agent(
+    model=model,
+    structured_output_model=ExtractionEnvelope,
+)
 builder = GraphBuilder()
 builder.add_node(listener, "listener")
 builder.add_node(ledger_curator, "ledger_curator")
-builder.add_node(risk_appraiser, "risk_appraiser")
-builder.add_node(quorum_router, "quorum_router")
-builder.add_node(executor, "executor")
-builder.add_edge("listener", "ledger_curator")
-builder.add_edge("ledger_curator", "risk_appraiser")
-builder.add_edge("risk_appraiser", "quorum_router")
-builder.add_edge("quorum_router", "executor", condition=may_execute)
+builder.add_edge("listener", "ledger_curator", condition=should_curate)
 builder.set_entry_point("listener")
-builder.set_max_node_executions(10)
+builder.set_max_node_executions(2)
 builder.set_execution_timeout(60)
 graph = builder.build()
 ```
 
-No ledger node may return a commitment without `source_message_ref`. The graph must validate this invariant outside model reasoning.
+The SDK propagates the original task and dependency result to the downstream node. The current
+structured-output API is the `structured_output_model` argument on `Agent` or an invocation; the
+older `Agent.structured_output()` helper is deprecated and is not used.
+
+No candidate is persisted unless its `source_message_ref` equals the current event reference and its
+`evidence_quote` is a verbatim substring of the current message. This invariant is implemented in
+ordinary typed code after model extraction. The local durable store is SQLite and stores structured
+ledger rows, not raw messages.
+
+The planned phase-two extension adds `Risk Appraiser -> Quorum Router -> Executor` without changing
+the phase-one event or extraction contracts.
+
+## Bedrock model evaluation
+
+The production model provider uses the standard boto3 credential chain. `QUORUM_AWS_REGION` is
+mandatory; the code refuses to guess a region. `QUORUM_BEDROCK_MODEL_ID` may override the documented
+default. The current machine has no AWS CLI, AWS config directory, AWS region variable, or AWS
+credential variable, so no online score is claimed.
+
+```bash
+export QUORUM_AWS_REGION='<enabled-region>'
+export QUORUM_BEDROCK_MODEL_ID='<enabled-model-id>'
+uv run quorum-run-model-eval --output data/eval/predictions/bedrock_v1.jsonl
+uv run quorum-eval \
+  --predictions data/eval/predictions/bedrock_v1.jsonl \
+  --predictor bedrock-v1 \
+  --output reports/eval/bedrock_v1.json
+```
 
 ## Strands Swarm
 

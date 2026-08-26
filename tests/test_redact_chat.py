@@ -43,12 +43,8 @@ class RedactorTest(unittest.TestCase):
 
     def test_pseudonyms_are_stable_for_same_key_and_differ_for_other_key(self) -> None:
         first = self.redactor.pseudonym("PERSON", "Alice Chen")
-        same = Redactor(b"test-secret-key-for-quorum").pseudonym(
-            "PERSON", "alice chen"
-        )
-        other = Redactor(b"another-secret-key-for-quorum").pseudonym(
-            "PERSON", "Alice Chen"
-        )
+        same = Redactor(b"test-secret-key-for-quorum").pseudonym("PERSON", "alice chen")
+        other = Redactor(b"another-secret-key-for-quorum").pseudonym("PERSON", "Alice Chen")
 
         self.assertEqual(first, same)
         self.assertNotEqual(first, other)

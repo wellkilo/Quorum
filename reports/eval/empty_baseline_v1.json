@@ -1,0 +1,518 @@
+{
+  "schema_version": "1.0",
+  "dataset": "data/eval/commitment_gold_v1.jsonl",
+  "data_classification": "synthetic",
+  "predictor": "empty-baseline-v1",
+  "case_count": 50,
+  "gold_commitment_count": 39,
+  "predicted_commitment_count": 0,
+  "exact_match_case_count": 10,
+  "exact_match_accuracy": 0.2,
+  "missed_commitment_count": 39,
+  "miss_rate": 1.0,
+  "hallucinated_commitment_count": 0,
+  "hallucination_rate": 0.0,
+  "rejected_for_evidence_count": 0,
+  "cases": [
+    {
+      "case_id": "gold_001",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_002",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_003",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_004",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_005",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_006",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_007",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_008",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_009",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_010",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_011",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_012",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_013",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_014",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_015",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_016",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_017",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_018",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_019",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_020",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_021",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_022",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_023",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_024",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_025",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_026",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_027",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_028",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_029",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_030",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_031",
+      "exact_match": false,
+      "gold_commitments": 2,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 2,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_032",
+      "exact_match": false,
+      "gold_commitments": 2,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 2,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_033",
+      "exact_match": false,
+      "gold_commitments": 2,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 2,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_034",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_035",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_036",
+      "exact_match": false,
+      "gold_commitments": 1,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 1,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_037",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_038",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_039",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_040",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_041",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_042",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_043",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_044",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_045",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_046",
+      "exact_match": true,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_047",
+      "exact_match": false,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_048",
+      "exact_match": false,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_049",
+      "exact_match": false,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    },
+    {
+      "case_id": "gold_050",
+      "exact_match": false,
+      "gold_commitments": 0,
+      "predicted_commitments": 0,
+      "matched_commitments": 0,
+      "missed_commitments": 0,
+      "hallucinated_commitments": 0,
+      "rejected_for_evidence": 0
+    }
+  ]
+}

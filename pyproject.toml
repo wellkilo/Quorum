@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quorum-agent"
+version = "0.1.0"
+description = "A low-interruption coordination agent for small groups."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = { file = "LICENSE" }
+authors = [{ name = "wellkilo", email = "wellkilo@foxmail.com" }]
+dependencies = [
+  "pydantic==2.12.5",
+  "strands-agents==1.53.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy==1.19.1",
+  "ruff==0.15.5",
+]
+runtime = [
+  "bedrock-agentcore==1.22.0",
+]
+
+[project.scripts]
+quorum-eval = "quorum.evaluation:main"
+quorum-run-model-eval = "quorum.model_eval:main"
+quorum-validate-gold = "quorum.gold:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quorum"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_redact_chat.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["quorum"]
+mypy_path = "src"

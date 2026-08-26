@@ -12,9 +12,26 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 ## Status
 
-Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. This repository currently contains the verified competition contract, privacy tooling, evaluation plan, and implementation interfaces. The Slack and AWS production paths are not yet claimed as deployed.
+Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, a real Strands `Listener -> Ledger Curator` Graph constructor, a deterministic source-evidence gate, local SQLite persistence, and a 50-case synthetic evaluation suite. The Slack and AWS production paths are not yet claimed as deployed.
 
-No real organization data, user quote, impact result, live-demo URL, or evaluation score is claimed at this stage. Any sample data added before a real organization is recruited will be labeled `synthetic` in both its filename and metadata.
+No real organization data, user quote, impact result, live-demo URL, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
+
+## Run the verified local slice
+
+Python 3.11–3.13 and [`uv`](https://docs.astral.sh/uv/) are required.
+
+```bash
+uv sync --extra dev
+uv run quorum-validate-gold
+uv run python -m unittest discover -s tests -v
+uv run ruff format --check src tests scripts
+uv run ruff check src tests scripts
+uv run mypy src/quorum
+```
+
+The Graph constructor uses the installed `strands-agents==1.53.0` package. It can be built without
+making a model request. Online extraction requires an explicitly selected AWS region and valid
+credentials through the standard boto3 credential chain; Quorum does not guess a region.
 
 ## The four mechanisms
 
@@ -31,7 +48,7 @@ Quorum does not ask a community to adopt another application. Its complete inter
 - one direct message when a real decision cannot be made safely;
 - one weekly summary showing outcomes and interruption spend.
 
-## Planned architecture
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -54,13 +71,23 @@ flowchart LR
     Ambiguity[Strands Swarm] -. semantic ambiguity only .-> Ledger
 ```
 
-The deterministic main path is a Strands Graph:
+The deterministic target path is a Strands Graph:
 
 ```text
 Listener -> Ledger Curator -> Risk Appraiser -> Quorum Router -> Executor
 ```
 
 Strands Swarm is intentionally excluded from routine orchestration. It is reserved for bounded semantic ambiguity resolution. Strands hook interrupts implement the autonomy gate before consequential tool calls.
+
+The phase-one executable graph implements the first edge only:
+
+```text
+CanonicalMessageEvent -> Listener -> Ledger Curator -> evidence gate -> SQLite Ledger
+```
+
+The Listener prevents pure chatter from reaching extraction. The Curator uses Pydantic structured
+output. A deterministic validator then rejects any candidate whose `source_message_ref` differs
+from the current event or whose `evidence_quote` is not a verbatim substring of that event.
 
 Runtime session identifiers, session-state persistence, and long-term memory are separate concerns:
 
@@ -72,11 +99,20 @@ See [API.md](API.md) and [Method.md](Method.md) for the versioned contracts.
 
 ## Evaluation as a product feature
 
-The project will include a 50-case, human-labeled commitment-extraction set. Every case will carry provenance and will measure:
+The repository includes a 50-case, reviewable synthetic commitment-extraction set. It contains
+39 expected commitment operations, 10 pure negative cases, 4 ambiguity cases, and coverage of all
+six frozen task classes. Every case carries provenance and measures:
 
-- extraction precision;
-- miss rate;
-- hallucination rate, where an output without source evidence is always a failure.
+- exact-match case accuracy;
+- miss rate over gold commitments;
+- hallucination rate over predictions, where an output without valid source evidence is always a
+  hallucination and is rejected before persistence.
+
+The committed `empty-baseline-v1` run verifies the metric pipeline; it is deliberately not a model
+result: 20.0% exact-match accuracy, 100.0% miss rate, and 0.0% hallucination rate. The apparently
+non-zero accuracy comes only from ten pure negative cases. See the
+[evaluation specification](docs/evaluation/commitment-ledger-eval-v1.md) and
+[machine-readable report](reports/eval/empty_baseline_v1.json).
 
 Impact evidence will compare the same week under two conditions and report message count, closed decisions, decision-latency P50, total interruptions, and undo rate. Until real consented data exists, the replay demo will use visibly labeled synthetic data and no impact claim will be presented as real-world evidence.
 
@@ -108,6 +144,8 @@ Do not reuse a published example key for real data. The key must never be commit
 - The real-time channel target is Slack. Discord is not in the initial build.
 - We do not claim real-time WeChat or WhatsApp ingestion. A consented export may be replayed offline after local redaction.
 - The current project has no recruited pilot organization and therefore no real-week impact result yet.
+- No Bedrock model score is published because this development environment has no configured AWS
+  CLI, region, or credentials.
 - Calendar, email, and form actions will be enabled only after their real SDK or MCP contracts and undo behavior are tested.
 
 ## Reuse and AI assistance disclosure
@@ -119,11 +157,15 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Public repository target and Apache-2.0 license
 - [x] English README and explicit current limitations
 - [x] Privacy-first local redaction tool and test plan
-- [ ] Working Strands Graph with source-evidence gate
+- [x] Typed Commitment Ledger with SQLite persistence
+- [x] Real Strands Graph constructor for Listener → Ledger Curator
+- [x] Deterministic source-evidence gate
+- [x] 50-case synthetic gold set and executable metric pipeline
+- [ ] Bedrock model evaluation result
 - [ ] Hook interrupt autonomy gate
 - [ ] AgentCore Runtime, Memory, Gateway, and OTEL traces
 - [ ] Anonymous synthetic replay demo
-- [ ] 50-case gold evaluation report
+- [x] Honest empty-baseline evaluation report
 - [ ] Consented real-organization comparison and quotation
 - [ ] Architecture diagram asset
 - [ ] Public YouTube or Vimeo video no longer than five minutes
