@@ -121,3 +121,114 @@ class CommitmentEventRow(Base):
     event_type: Mapped[str] = mapped_column(String(20), nullable=False)
     snapshot: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AutonomyProfileRow(Base):
+    __tablename__ = "autonomy_profiles"
+    __table_args__ = (
+        CheckConstraint("level >= 0 AND level <= 3", name="ck_autonomy_profile_level"),
+        CheckConstraint("consecutive_approvals >= 0", name="ck_autonomy_profile_approvals"),
+        CheckConstraint("rejection_count >= 0", name="ck_autonomy_profile_rejections"),
+        CheckConstraint("undo_count >= 0", name="ck_autonomy_profile_undos"),
+    )
+
+    organization_id: Mapped[str] = mapped_column(
+        String(200), ForeignKey("organizations.organization_id"), primary_key=True
+    )
+    action_class: Mapped[str] = mapped_column(String(40), primary_key=True)
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consecutive_approvals: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rejection_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    undo_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class InterruptBudgetAccountRow(Base):
+    __tablename__ = "interrupt_budget_accounts"
+
+    organization_id: Mapped[str] = mapped_column(
+        String(200), ForeignKey("organizations.organization_id"), primary_key=True
+    )
+    participant_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ActionDecisionRow(Base):
+    __tablename__ = "action_decisions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "action_class"],
+            ["autonomy_profiles.organization_id", "autonomy_profiles.action_class"],
+            name="fk_action_decision_autonomy_profile",
+        ),
+        CheckConstraint("risk_score >= 0 AND risk_score <= 9", name="ck_action_risk_score"),
+        CheckConstraint("risk_tier IN ('low', 'medium', 'high')", name="ck_action_risk_tier"),
+        CheckConstraint(
+            "status IN ('authorized', 'awaiting_approval', 'deferred_budget', "
+            "'approved', 'rejected', 'expired', 'executed', 'undone')",
+            name="ck_action_decision_status",
+        ),
+        CheckConstraint("required_quorum >= 0", name="ck_action_required_quorum"),
+        Index(
+            "ix_action_decisions_org_status_timeout",
+            "organization_id",
+            "status",
+            "timeout_at",
+        ),
+    )
+
+    organization_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    action_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    requested_by_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    action_class: Mapped[str] = mapped_column(String(40), nullable=False)
+    tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    risk_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    risk_tier: Mapped[str] = mapped_column(String(20), nullable=False)
+    risk_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    autonomy_payload: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    required_quorum: Mapped[int] = mapped_column(Integer, nullable=False)
+    selected_decider_ids: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    budget_payload: Mapped[list[dict[str, Any]]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    timeout_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    timeout_default: Mapped[str] = mapped_column(String(30), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class InterruptEventRow(Base):
+    __tablename__ = "interrupt_events"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "action_id"],
+            ["action_decisions.organization_id", "action_decisions.action_id"],
+            name="fk_interrupt_event_action",
+        ),
+        CheckConstraint(
+            "event_type IN ('requested', 'approved', 'rejected', 'expired')",
+            name="ck_interrupt_event_type",
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "action_id",
+            "participant_id",
+            "event_type",
+            name="uq_interrupt_event_transition",
+        ),
+        Index(
+            "ix_interrupt_events_budget_window",
+            "organization_id",
+            "participant_id",
+            "event_type",
+            "occurred_at",
+        ),
+    )
+
+    event_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    action_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    participant_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -1,17 +1,20 @@
 # Quorum Method and SDK Contract
 
-Status: phase-one executable contract based on `strands-agents==1.53.0`,
+Status: phase-two executable contract based on `strands-agents==1.53.0`,
 `pydantic==2.12.5`, `SQLAlchemy==2.0.52`, `Alembic==1.19.1`, and psycopg 3 for PostgreSQL. AgentCore
 remains a verified design contract until credentials and deployment are available.
 
 ## Strands Graph
 
-Implemented phase-one imports and methods:
+Implemented Graph imports and methods:
 
 ```python
 from strands import Agent
 from strands.models import BedrockModel
 from strands.multiagent import GraphBuilder
+
+from quorum.autonomy_hook import QuorumAutonomyGate
+from quorum.decision_graph import DeterministicQuorumRouterNode, DeterministicRiskNode
 
 model = BedrockModel(
     model_id=selected_model_id,
@@ -27,13 +30,26 @@ ledger_curator = Agent(
     model=model,
     structured_output_model=ExtractionEnvelope,
 )
+risk_appraiser = DeterministicRiskNode()
+quorum_router = DeterministicQuorumRouterNode(decision_store)
+executor = Agent(
+    model=model,
+    tools=[execute_approved_action],
+    hooks=[QuorumAutonomyGate(decision_store)],
+)
 builder = GraphBuilder()
 builder.add_node(listener, "listener")
 builder.add_node(ledger_curator, "ledger_curator")
-builder.add_edge("listener", "ledger_curator", condition=should_curate)
+builder.add_node(risk_appraiser, "risk_appraiser")
+builder.add_node(quorum_router, "quorum_router")
+builder.add_node(executor, "executor")
+builder.add_edge("listener", "ledger_curator")
+builder.add_edge("ledger_curator", "risk_appraiser")
+builder.add_edge("risk_appraiser", "quorum_router")
+builder.add_edge("quorum_router", "executor")
 builder.set_entry_point("listener")
-builder.set_max_node_executions(2)
-builder.set_execution_timeout(60)
+builder.set_max_node_executions(5)
+builder.set_execution_timeout(90)
 graph = builder.build()
 ```
 
@@ -46,8 +62,14 @@ No candidate is persisted unless its `source_message_ref` equals the current eve
 ordinary typed code after model extraction. The durable business store uses SQLite locally and
 PostgreSQL in production; it stores structured ledger facts, not raw messages.
 
-The planned phase-two extension adds `Risk Appraiser -> Quorum Router -> Executor` without changing
-the phase-one event or extraction contracts.
+`ActionRequest` is supplied under `invocation_state["quorum_action_request"]`. The Risk Appraiser
+and Quorum Router intentionally implement the Strands node invocation interface without using a
+model. The router persists and returns a typed `PolicyDecision`. The Executor remains model-backed,
+but its consequential tool boundary is independently enforced by the native hook. The current tool
+returns `authorized_dry_run`; this milestone proves authorization, not an external side effect.
+
+The five-node structure and deterministic policy nodes are tested without a model request. A live
+Bedrock end-to-end invocation is not claimed until credentials and an explicit region are available.
 
 ## Business persistence
 
@@ -82,6 +104,23 @@ PostgreSQL uses `JSONB`, timezone-aware timestamps, composite tenant keys, and
 with a different fingerprint raises `IdempotencyConflictError`. The migration installs a database
 trigger that rejects `UPDATE` and `DELETE` on `commitment_events`. SQLite receives equivalent
 triggers so the local test contract matches the production invariant.
+
+The second migration adds four policy tables:
+
+- `autonomy_profiles`: per-organization, per-task-class earned autonomy state;
+- `interrupt_budget_accounts`: lock targets for concurrent per-person budget routing;
+- `action_decisions`: idempotent risk, quorum, timeout, and authorization outcomes;
+- `interrupt_events`: append-only requested, approved, rejected, and expired evidence.
+
+`DecisionPolicyStore.decide()` initializes and locks the autonomy profile and all ordered candidate
+budget accounts before counting events and selecting a quorum. This makes the PostgreSQL routing
+transaction resistant to concurrent budget overspend. `resolve()` locks the decision, accumulates
+independent participant responses, and changes autonomy only once on a terminal approval or
+rejection. `record_undo()` accepts only authorized, approved, or executed actions and is idempotent.
+Irreversible actions cannot be undone. Timeout resolution runs under the same decision-row lock, so a
+late response cannot authorize an expired action; only nonresponding participants receive an
+`expired` audit event. The interrupt event table has database triggers rejecting update and delete
+operations.
 
 ```bash
 export QUORUM_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST:5432/quorum?sslmode=require'
@@ -122,27 +161,51 @@ ambiguity_swarm = Swarm([temporal_resolver, ownership_resolver])
 
 Swarm is invoked only after deterministic extraction reports an ambiguity that blocks a ledger decision. Swarm output is advisory and must still pass the evidence invariant.
 
+## Deterministic policy
+
+The exact risk points are: reversible `0`, compensatable `1`, irreversible `3`; individual `0`, group
+`1`, external `3`; no money `0`, budgeted `1`, unbudgeted `3`. Irreversible or unbudgeted actions, or
+any total score of at least four, are high risk. Scores of two or three are medium; lower scores are
+low.
+
+High risk always requires two approvals. Medium risk requires one unless maximum autonomy and the
+action is non-irreversible and money-free. Low risk requires one below `notify-and-undo` and zero at
+or above it. The router selects the first minimum set with budget remaining; no person may receive
+more than two requests in the preceding seven days. Insufficient budget yields `deferred_budget`.
+All pending routes time out after 24 hours. Low risk defaults to execute-and-notify; medium and high
+risk expire without action. Three consecutive approvals promote one level. Rejection and undo each
+downgrade one level and reset the approval streak.
+
 ## Hook interrupt autonomy gate
 
 ```python
-from strands.hooks import BeforeToolCallEvent, HookProvider, HookRegistry
+from strands.hooks import BeforeToolCallEvent, HookRegistry
 
-class AutonomyGate(HookProvider):
+class QuorumAutonomyGate:
     def register_hooks(self, registry: HookRegistry) -> None:
-        registry.add_callback(BeforeToolCallEvent, self.authorize)
+        for slot in range(10):
+            registry.add_callback(BeforeToolCallEvent, self.approval_callback(slot))
 
-    def authorize(self, event: BeforeToolCallEvent) -> None:
-        decision = evaluate_policy(event.tool_use)
-        if decision.requires_human:
-            answer = event.interrupt(
-                "quorum-approval",
-                reason=decision.to_interrupt_reason(),
+    def approval_callback(self, slot):
+        def authorize(event: BeforeToolCallEvent) -> None:
+            decision = self.store.get_decision(
+                event.tool_use["input"]["organization_id"],
+                event.tool_use["input"]["action_id"],
             )
-            if not answer.get("approved"):
-                event.cancel_tool = "Approval denied or expired"
+            response = event.interrupt(
+                f"quorum-approval-{slot}",
+                reason=interrupt_reason(decision, slot),
+            )
+            self.store.resolve(decision.organization_id, to_resolution(response))
+        return authorize
 ```
 
-Policy evaluation must be deterministic and include reversibility, impact radius, money, autonomy level, quorum, timeout default, and the person's rolling interrupt spend. A plain model-generated approval is never sufficient.
+Each callback can contribute one native interrupt, and Strands aggregates callbacks into the
+multi-person interrupt set. On resume, each response is persisted and accumulated until the required
+quorum is reached. The production implementation also fails closed for missing policy, mismatched
+tools, rejected, expired, deferred, and undone actions. A plain model-generated approval is never
+sufficient. Tests exercise both initial interruption and two-person resume through a real
+`HookRegistry`.
 
 ## AgentCore Runtime
 

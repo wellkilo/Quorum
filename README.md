@@ -12,7 +12,7 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 ## Status
 
-Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, a real Strands `Listener -> Ledger Curator` Graph constructor, a deterministic source-evidence gate, transactional SQLite/PostgreSQL persistence, Alembic migrations, and a 50-case synthetic evaluation suite. The Slack and AWS production paths are not yet claimed as deployed.
+Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, a deterministic risk and routing policy, a Strands-native hook interrupt autonomy gate, transactional SQLite/PostgreSQL persistence, Alembic migrations, and a 50-case synthetic evaluation suite. The Slack and AWS production paths are not yet claimed as deployed.
 
 No real organization data, user quote, impact result, live-demo URL, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
 
@@ -82,26 +82,42 @@ Listener -> Ledger Curator -> Risk Appraiser -> Quorum Router -> Executor
 
 Strands Swarm is intentionally excluded from routine orchestration. It is reserved for bounded semantic ambiguity resolution. Strands hook interrupts implement the autonomy gate before consequential tool calls.
 
-The phase-one executable graph implements the first edge only:
+The executable graph now constructs all five required nodes:
 
 ```text
-CanonicalMessageEvent -> Listener -> Ledger Curator -> evidence gate -> DatabaseLedger
+Listener -> Ledger Curator -> Risk Appraiser -> Quorum Router -> Executor
 ```
 
-The Listener prevents pure chatter from reaching extraction. The Curator uses Pydantic structured
-output. A deterministic validator then rejects any candidate whose `source_message_ref` differs
-from the current event or whose `evidence_quote` is not a verbatim substring of that event.
-`DatabaseLedger` uses SQLite for zero-setup local development and PostgreSQL with psycopg 3 for the
-production path. Both use the same SQLAlchemy domain implementation and Alembic schema. Each message
-is claimed idempotently, each commitment mutation is tenant-scoped and transactional, and each
-accepted change writes an append-only audit event. Raw message text is not stored in these tables.
+The Listener and Ledger Curator are typed model-backed `Agent` nodes. The Risk Appraiser and Quorum
+Router are deterministic Strands-compatible nodes: model prose cannot change the risk score,
+autonomy level, quorum size, timeout, or interrupt spend. The Executor is a real `Agent` whose tool
+boundary is guarded by `BeforeToolCallEvent` and `event.interrupt()`. It re-reads the persisted policy
+by organization and action ID before allowing a tool call. Missing, mismatched, rejected, expired, or
+budget-deferred decisions fail closed.
+
+The fixed risk rubric scores reversibility, impact radius, and money impact. High-risk actions always
+require two people, even at maximum autonomy. Lower-risk actions require the minimum safe quorum; a
+low-risk action may become silent only after earned autonomy. Each person's interrupt budget is two
+requests in a rolling seven-day window. When the first candidate is exhausted, routing moves to the
+next eligible person; when no minimum quorum remains, the action is deferred instead of exceeding the
+budget. All pending decisions have a 24-hour timeout. Low-risk timeouts may execute and notify, while
+medium- and high-risk timeouts expire without action. Three consecutive approvals raise autonomy by
+one level; a rejection or undo lowers it by one.
+
+`DatabaseLedger` and `DecisionPolicyStore` use SQLite for zero-setup local development and PostgreSQL
+with psycopg 3 for the production path. Both use the same SQLAlchemy domain implementation and
+Alembic schema. Decision IDs are idempotent, mutable policy rows are transactionally locked, all
+queries are tenant-scoped, and interrupt evidence is append-only. Raw message text is not stored in
+these tables. The current executor intentionally returns an `authorized_dry_run` receipt; real
+calendar, email, and form side effects belong to the next milestone.
 
 Runtime session identifiers, session-state persistence, and long-term memory are separate concerns:
 
 - AgentCore Runtime identifies a runtime session.
 - A Strands session manager persists graph and conversation state.
 - AgentCore Memory stores durable organization facts and summaries.
-- PostgreSQL stores authoritative business facts, idempotency records, and the commitment audit log.
+- PostgreSQL stores authoritative business facts, idempotency records, commitment audit events,
+  autonomy profiles, policy decisions, and interrupt-budget events.
 
 These stores are complementary. PostgreSQL is not presented as AgentCore Memory, and a Runtime
 session ID is not used as a persistence mechanism.
@@ -174,10 +190,13 @@ Do not reuse a published example key for real data. The key must never be commit
 - The current project has no recruited pilot organization and therefore no real-week impact result yet.
 - No Bedrock model score is published because this development environment has no configured AWS
   CLI, region, or credentials.
+- The five-node Graph structure, deterministic nodes, and native hook interrupt/resume behavior are
+  tested locally. A live Bedrock end-to-end Graph run is not claimed.
 - PostgreSQL DDL is compiled and asserted in tests, while the repository's integration suite runs
   against SQLite. A live PostgreSQL network integration result will only be claimed after a
   dedicated test endpoint is available.
-- Calendar, email, and form actions will be enabled only after their real SDK or MCP contracts and undo behavior are tested.
+- The current executor is a non-mutating authorization receipt. Calendar, email, and form actions
+  will be enabled only after their real SDK or MCP contracts and undo behavior are tested.
 
 ## Reuse and AI assistance disclosure
 
@@ -190,11 +209,13 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Privacy-first local redaction tool and test plan
 - [x] Typed Commitment Ledger with SQLite development and PostgreSQL production persistence
 - [x] Alembic schema, message idempotency, tenant isolation, and append-only audit events
-- [x] Real Strands Graph constructor for Listener → Ledger Curator
+- [x] Five-node Strands Graph constructor with deterministic Risk Appraiser and Quorum Router
 - [x] Deterministic source-evidence gate
+- [x] Deterministic risk rubric, Autonomy Ladder, minimum-quorum routing, and 24-hour defaults
+- [x] Rolling seven-day, two-interrupt-per-person budget with append-only evidence
+- [x] Strands-native `BeforeToolCallEvent` / `event.interrupt()` autonomy gate
 - [x] 50-case synthetic gold set and executable metric pipeline
 - [ ] Bedrock model evaluation result
-- [ ] Hook interrupt autonomy gate
 - [ ] AgentCore Runtime, Memory, Gateway, and OTEL traces
 - [ ] Anonymous synthetic replay demo
 - [x] Honest empty-baseline evaluation report

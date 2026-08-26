@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -41,6 +41,53 @@ class CommitmentStatus(StrEnum):
     OPEN = "open"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+
+class Reversibility(StrEnum):
+    REVERSIBLE = "reversible"
+    COMPENSATABLE = "compensatable"
+    IRREVERSIBLE = "irreversible"
+
+
+class ImpactRadius(StrEnum):
+    INDIVIDUAL = "individual"
+    GROUP = "group"
+    EXTERNAL = "external"
+
+
+class MoneyImpact(StrEnum):
+    NONE = "none"
+    BUDGETED = "budgeted"
+    UNBUDGETED = "unbudgeted"
+
+
+class RiskTier(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class AutonomyLevel(IntEnum):
+    ASK_FIRST = 0
+    SUGGEST = 1
+    NOTIFY_AND_UNDO = 2
+    AUTO_EXECUTE = 3
+
+
+class TimeoutDefault(StrEnum):
+    EXECUTE_AND_NOTIFY = "execute_and_notify"
+    EXPIRE_WITHOUT_ACTION = "expire_without_action"
+
+
+class DecisionStatus(StrEnum):
+    AUTHORIZED = "authorized"
+    AWAITING_APPROVAL = "awaiting_approval"
+    DEFERRED_BUDGET = "deferred_budget"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+    EXECUTED = "executed"
+    UNDONE = "undone"
 
 
 OpaqueId = Annotated[str, Field(min_length=3, max_length=200, pattern=r"^[A-Za-z0-9:_\-.]+$")]
@@ -159,3 +206,105 @@ class LedgerChangeSet(StrictModel):
     upserted: list[LedgerItem] = Field(default_factory=list)
     rejected: list[RejectedCandidate] = Field(default_factory=list)
     duplicate_event: bool = False
+
+
+class ActionRequest(StrictModel):
+    schema_version: Literal["1.0"] = "1.0"
+    action_id: OpaqueId
+    organization_id: OpaqueId
+    requested_by_id: OpaqueId
+    action_class: TaskClass
+    tool_name: Annotated[str, Field(min_length=3, max_length=100, pattern=r"^[a-z][a-z0-9_]*$")]
+    summary: Annotated[str, Field(min_length=3, max_length=300)]
+    reversibility: Reversibility
+    impact_radius: ImpactRadius
+    money_impact: MoneyImpact
+    candidate_decider_ids: Annotated[list[OpaqueId], Field(min_length=1, max_length=10)]
+    requested_at: datetime
+
+    @field_validator("requested_at")
+    @classmethod
+    def require_requested_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("requested_at must include a timezone")
+        return value
+
+    @field_validator("candidate_decider_ids")
+    @classmethod
+    def require_unique_deciders(cls, value: list[str]) -> list[str]:
+        if len(value) != len(set(value)):
+            raise ValueError("candidate_decider_ids must be unique and ordered")
+        return value
+
+
+class RiskAssessment(StrictModel):
+    score: int = Field(ge=0, le=9)
+    tier: RiskTier
+    reversibility_points: int = Field(ge=0, le=3)
+    impact_radius_points: int = Field(ge=0, le=3)
+    money_impact_points: int = Field(ge=0, le=3)
+    reasons: Annotated[list[str], Field(min_length=3, max_length=3)]
+
+
+class AutonomySnapshot(StrictModel):
+    level: AutonomyLevel = AutonomyLevel.ASK_FIRST
+    consecutive_approvals: int = Field(default=0, ge=0)
+    rejection_count: int = Field(default=0, ge=0)
+    undo_count: int = Field(default=0, ge=0)
+
+
+class InterruptBudgetSnapshot(StrictModel):
+    participant_id: OpaqueId
+    spent: int = Field(ge=0)
+    limit: int = Field(default=2, ge=1)
+
+    @property
+    def remaining(self) -> int:
+        return max(self.limit - self.spent, 0)
+
+
+class PolicyDecision(StrictModel):
+    action_id: OpaqueId
+    organization_id: OpaqueId
+    requested_by_id: OpaqueId
+    action_class: TaskClass
+    tool_name: str
+    risk: RiskAssessment
+    autonomy: AutonomySnapshot
+    required_quorum: int = Field(ge=0, le=10)
+    selected_decider_ids: list[OpaqueId] = Field(default_factory=list, max_length=10)
+    budgets: list[InterruptBudgetSnapshot] = Field(default_factory=list, max_length=10)
+    status: DecisionStatus
+    timeout_at: datetime | None = None
+    timeout_default: TimeoutDefault
+
+    @model_validator(mode="after")
+    def validate_route(self) -> PolicyDecision:
+        if self.status is DecisionStatus.AWAITING_APPROVAL:
+            if self.required_quorum < 1 or len(self.selected_decider_ids) < self.required_quorum:
+                raise ValueError("awaiting approval requires enough selected deciders")
+            if self.timeout_at is None:
+                raise ValueError("awaiting approval requires timeout_at")
+        if self.status is DecisionStatus.AUTHORIZED and self.required_quorum != 0:
+            raise ValueError("authorized decisions cannot require quorum")
+        return self
+
+
+class ParticipantResponse(StrictModel):
+    participant_id: OpaqueId
+    decision: Literal["approve", "reject"]
+
+
+class InterruptResolution(StrictModel):
+    action_id: OpaqueId
+    responses: Annotated[list[ParticipantResponse], Field(min_length=1, max_length=10)]
+
+    @field_validator("responses")
+    @classmethod
+    def require_unique_responses(
+        cls, value: list[ParticipantResponse]
+    ) -> list[ParticipantResponse]:
+        ids = [response.participant_id for response in value]
+        if len(ids) != len(set(ids)):
+            raise ValueError("each participant may respond once")
+        return value

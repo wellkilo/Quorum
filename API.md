@@ -144,7 +144,107 @@ The production database URL is supplied only through `QUORUM_DATABASE_URL`. Supp
 `postgresql+psycopg://` for production and `sqlite+pysqlite://` for local development. All reads and
 mutations require `organization_id`; this storage layer never accepts raw Slack payloads.
 
-## 5. AgentCore Runtime invocation
+## 5. Deterministic action request
+
+This is the typed input to the Risk Appraiser and Quorum Router. The three risk dimensions are
+declared values, not free-form model output. Candidate deciders are ordered and unique.
+
+```json
+{
+  "schema_version": "1.0",
+  "action_id": "action_opaque",
+  "organization_id": "org_opaque",
+  "requested_by_id": "person_requester",
+  "action_class": "event_decision",
+  "tool_name": "execute_approved_action",
+  "summary": "Create a tentative planning event",
+  "reversibility": "reversible",
+  "impact_radius": "individual",
+  "money_impact": "none",
+  "candidate_decider_ids": ["person_a", "person_b"],
+  "requested_at": "2026-08-26T10:00:00Z"
+}
+```
+
+Allowed risk values are:
+
+- `reversibility`: `reversible`, `compensatable`, or `irreversible`;
+- `impact_radius`: `individual`, `group`, or `external`;
+- `money_impact`: `none`, `budgeted`, or `unbudgeted`.
+
+## 6. Persisted policy decision
+
+`DecisionPolicyStore.decide()` is idempotent on `(organization_id, action_id)`. Reusing the same
+identity with different request content is a conflict. The method locks the autonomy profile and
+candidate budget accounts, computes spend in the same transaction, and appends one `requested`
+interrupt event for each selected decider.
+
+```json
+{
+  "action_id": "action_opaque",
+  "organization_id": "org_opaque",
+  "requested_by_id": "person_requester",
+  "action_class": "event_decision",
+  "tool_name": "execute_approved_action",
+  "risk": {
+    "score": 0,
+    "tier": "low",
+    "reversibility_points": 0,
+    "impact_radius_points": 0,
+    "money_impact_points": 0,
+    "reasons": [
+      "reversibility:reversible=0",
+      "impact_radius:individual=0",
+      "money_impact:none=0"
+    ]
+  },
+  "autonomy": {
+    "level": 0,
+    "consecutive_approvals": 0,
+    "rejection_count": 0,
+    "undo_count": 0
+  },
+  "required_quorum": 1,
+  "selected_decider_ids": ["person_a"],
+  "budgets": [{"participant_id": "person_a", "spent": 0, "limit": 2}],
+  "status": "awaiting_approval",
+  "timeout_at": "2026-08-27T10:00:00Z",
+  "timeout_default": "execute_and_notify"
+}
+```
+
+Decision statuses are `authorized`, `awaiting_approval`, `deferred_budget`, `approved`, `rejected`,
+`expired`, `executed`, and `undone`. Interrupt responses may only come from selected deciders and may
+not be changed. Repeated identical responses are idempotent. Three completed approvals promote one
+autonomy level; rejection or a valid undo lowers one level. A response received at or after the
+persisted timeout is not accepted: the timeout default is applied first. Undo accepts only authorized,
+approved, or executed reversible actions and is itself idempotent.
+
+## 7. Native hook interrupt contract
+
+The Executor passes `organization_id` and `action_id` in the tool input.
+`QuorumAutonomyGate` re-reads the persisted decision, verifies the exact tool name, and creates one
+Strands interrupt per selected quorum member.
+
+```json
+{
+  "name": "quorum-approval-0",
+  "reason": {
+    "action_id": "action_opaque",
+    "participant_id": "person_a",
+    "risk_tier": "low",
+    "required_quorum": 1,
+    "timeout_at": "2026-08-27T10:00:00Z",
+    "timeout_default": "execute_and_notify"
+  }
+}
+```
+
+Accepted response payloads are the strings `approve`, `approved`, `yes`, or `y`, or an object whose
+`decision` contains one of those values. Any other response is a rejection. Missing policy, a tool
+name mismatch, or a non-executable status cancels the tool call.
+
+## 8. AgentCore Runtime invocation
 
 `POST /invocations` is hosted by AgentCore Runtime through `BedrockAgentCoreApp`.
 
@@ -181,7 +281,7 @@ Response body:
 }
 ```
 
-## 6. Human interrupt resume
+## 9. Human interrupt resume
 
 The Strands interrupt response is sent back to the same logical session.
 
@@ -194,8 +294,7 @@ The Strands interrupt response is sent back to the same logical session.
       "interruptResponse": {
         "interruptId": "interrupt_opaque",
         "response": {
-          "decision": "approve|reject|edit",
-          "selected_option": "option_opaque"
+          "decision": "approve|reject"
         }
       }
     }
@@ -203,7 +302,7 @@ The Strands interrupt response is sent back to the same logical session.
 }
 ```
 
-## 7. Undo action
+## 10. Undo action
 
 `POST /actions/{action_id}/undo`
 
@@ -226,7 +325,7 @@ Response:
 
 The token must be short-lived, single-use, scoped to one action, and excluded from logs.
 
-## 8. Replay API for the public sandbox
+## 11. Replay API for the public sandbox
 
 `POST /demo/replays/synthetic-week`
 
@@ -249,7 +348,7 @@ Every replay response must state its provenance:
 }
 ```
 
-## 9. Error envelope
+## 12. Error envelope
 
 ```json
 {

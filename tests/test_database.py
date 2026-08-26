@@ -87,6 +87,7 @@ class DatabaseSettingsTest(unittest.TestCase):
         self.assertTrue(config_path.is_file())
         self.assertTrue((script_path / "env.py").is_file())
         self.assertTrue((script_path / "versions" / "20260826_0001_commitment_ledger.py").is_file())
+        self.assertTrue((script_path / "versions" / "20260826_0002_decision_policy.py").is_file())
 
     def test_defaults_to_local_sqlite(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
@@ -133,6 +134,21 @@ class DatabaseSettingsTest(unittest.TestCase):
         self.assertIn("PRIMARY KEY (organization_id, commitment_id)", ddl)
         self.assertIn("quorum_reject_commitment_event_mutation", ddl)
         self.assertIn("BEFORE UPDATE OR DELETE ON commitment_events", ddl)
+        self.assertIn("quorum_reject_interrupt_event_mutation", ddl)
+        self.assertIn("BEFORE UPDATE OR DELETE ON interrupt_events", ddl)
+        self.assertIn("CREATE TABLE autonomy_profiles", ddl)
+        self.assertIn("CREATE TABLE action_decisions", ddl)
+        self.assertIn("CREATE TABLE interrupt_events", ddl)
+        self.assertIn(
+            "FOREIGN KEY(organization_id, action_class) "
+            "REFERENCES autonomy_profiles (organization_id, action_class)",
+            ddl,
+        )
+        self.assertIn(
+            "FOREIGN KEY(organization_id, action_id) "
+            "REFERENCES action_decisions (organization_id, action_id)",
+            ddl,
+        )
         self.assertNotIn("secret", ddl)
 
 
@@ -157,9 +173,13 @@ class DatabaseLedgerTest(unittest.TestCase):
         self.assertEqual(
             set(inspect(self.engine).get_table_names()),
             {
+                "action_decisions",
                 "alembic_version",
+                "autonomy_profiles",
                 "commitment_events",
                 "commitments",
+                "interrupt_budget_accounts",
+                "interrupt_events",
                 "organizations",
                 "processed_messages",
             },
@@ -184,9 +204,13 @@ class DatabaseLedgerTest(unittest.TestCase):
         self.assertEqual(
             set(inspect(self.engine).get_table_names()),
             {
+                "action_decisions",
                 "alembic_version",
+                "autonomy_profiles",
                 "commitment_events",
                 "commitments",
+                "interrupt_budget_accounts",
+                "interrupt_events",
                 "organizations",
                 "processed_messages",
             },
