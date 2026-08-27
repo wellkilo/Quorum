@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Quorum synthetic replay: coordination with fewer interruptions.">
     <title>Quorum · Synthetic week replay</title>
-    <link rel="stylesheet" href="/assets/style.css">
-    <script defer src="/assets/app.js"></script>
+    <link rel="stylesheet" href="./assets/style.css">
+    <script defer src="./assets/app.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#replay">Skip to replay</a>
     <header class="masthead">
-      <a class="wordmark" href="/" aria-label="Quorum home">QUORUM<span>.</span></a>
-      <div class="status-line">
+      <a class="wordmark" href="./" aria-label="Quorum home">QUORUM<span>.</span></a>
+      <div id="evidence-mode" class="status-line">
         <span class="status-dot" aria-hidden="true"></span>
-        Public sandbox · synthetic data only
+        Public static replay · synthetic data only
       </div>
       <a class="repo-link" href="https://github.com/wellkilo/Quorum">View source</a>
     </header>
@@ -117,7 +117,7 @@
 
       <aside class="provenance">
         <strong>Synthetic replay</strong>
-        <span>These figures demonstrate the product and measurement contract. They are not a real-world pilot result.</span>
+        <span id="evidence-source">Versioned synthetic evidence on GitHub Pages. No live AgentCore backend or real-world pilot is claimed.</span>
         <code id="replay-id">no run yet</code>
       </aside>
     </main>

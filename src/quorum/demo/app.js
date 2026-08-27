@@ -5,6 +5,15 @@ const runState = document.querySelector('#run-state');
 const replayId = document.querySelector('#replay-id');
 const comparison = document.querySelector('.comparison');
 const messageField = document.querySelector('#message-field');
+const evidenceSource = document.querySelector('#evidence-source');
+const evidenceMode = document.querySelector('#evidence-mode');
+const staticEvidenceHost = window.location.hostname === 'wellkilo.github.io'
+  || new URLSearchParams(window.location.search).get('mode') === 'static';
+
+if (!staticEvidenceHost) {
+  evidenceMode.lastChild.textContent = ' Runtime replay · synthetic data only';
+  evidenceSource.textContent = 'Synthetic Runtime replay. This is not a measured real-world outcome.';
+}
 
 for (let index = 0; index < 72; index += 1) {
   const dot = document.createElement('i');
@@ -15,6 +24,36 @@ for (let index = 0; index < 72; index += 1) {
 }
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+function validateReplayData(data) {
+  const valid = data
+    && data.dataset_id === 'synthetic_week_v1'
+    && data.data_classification === 'synthetic'
+    && typeof data.replay_id === 'string'
+    && typeof data.baseline?.message_count === 'number'
+    && typeof data.baseline?.closed_decisions === 'number'
+    && typeof data.baseline?.decision_latency_p50_hours === 'number'
+    && typeof data.quorum?.interruption_count === 'number'
+    && typeof data.quorum?.closed_decisions === 'number'
+    && typeof data.quorum?.decision_latency_p50_hours === 'number'
+    && Array.isArray(data.timeline)
+    && Array.isArray(data.receipts)
+    && typeof data.disclaimer === 'string';
+  if (!valid) throw new Error('Replay data failed its public evidence contract');
+  return data;
+}
+
+async function loadReplayData() {
+  if (staticEvidenceHost) {
+    const response = await fetch('./synthetic-week.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Static evidence replay unavailable');
+    return { data: validateReplayData(await response.json()), source: 'static' };
+  }
+
+  const response = await fetch('./demo/replays/synthetic-week', { method: 'POST' });
+  if (!response.ok) throw new Error('Runtime replay API unavailable');
+  return { data: validateReplayData(await response.json()), source: 'runtime' };
+}
 
 async function runReplay() {
   button.disabled = true;
@@ -28,10 +67,11 @@ async function runReplay() {
   receiptList.replaceChildren();
 
   try {
-    const response = await fetch('/demo/replays/synthetic-week', { method: 'POST' });
-    if (!response.ok) throw new Error('Replay API unavailable');
-    const data = await response.json();
+    const { data, source } = await loadReplayData();
     replayId.textContent = data.replay_id;
+    evidenceSource.textContent = source === 'static'
+      ? 'Versioned static evidence replay on GitHub Pages. AgentCore deployment is not claimed.'
+      : data.disclaimer;
 
     document.querySelector('#baseline-messages').textContent = data.baseline.message_count;
     document.querySelector('#baseline-decisions').textContent = data.baseline.closed_decisions;
@@ -59,7 +99,7 @@ async function runReplay() {
         receiptList.append(receipt);
       }
     }
-    runState.textContent = 'Complete';
+    runState.textContent = source === 'static' ? 'Complete · static' : 'Complete · runtime';
   } catch (error) {
     runState.textContent = 'Unavailable';
     const row = document.createElement('li');

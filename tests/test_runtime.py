@@ -170,7 +170,8 @@ class RuntimeHttpContractTest(unittest.TestCase):
         metrics = self.client.get(f"/demo/metrics/{replay_id}")
 
         self.assertEqual(home.status_code, 200)
-        self.assertIn("Public sandbox · synthetic data only", home.text)
+        self.assertIn("synthetic data only", home.text)
+        self.assertIn("No live AgentCore backend", home.text)
         self.assertEqual(replay.status_code, 200)
         self.assertEqual(metrics.status_code, 200)
         self.assertEqual(metrics.json()["data_classification"], "synthetic")

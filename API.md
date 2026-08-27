@@ -419,6 +419,11 @@ Every replay response must state its provenance:
 
 The full snapshot is retrieved with `GET /demo/metrics/{replay_id}`. Unknown replay IDs return 404.
 
+The public GitHub Pages build cannot expose a Python API. It reads the versioned
+`synthetic-week.json` artifact with the same response shape and an explicit static replay ID. An
+executable test compares every non-ID field with `ReplayStore`; the page explicitly states that this
+is static synthetic evidence and not a deployed AgentCore result.
+
 ## 14. Error envelope
 
 ```json

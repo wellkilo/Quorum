@@ -1,0 +1,34 @@
+{
+  "replay_id": "static_synthetic_week_v1",
+  "dataset_id": "synthetic_week_v1",
+  "data_classification": "synthetic",
+  "baseline": {
+    "message_count": 214,
+    "closed_decisions": 3,
+    "decision_latency_p50_hours": 74.4,
+    "interruption_count": 214,
+    "undo_rate": 0.0
+  },
+  "quorum": {
+    "message_count": 8,
+    "closed_decisions": 6,
+    "decision_latency_p50_hours": 7.0,
+    "interruption_count": 6,
+    "undo_rate": 0.16666666666666666
+  },
+  "interrupt_budget_limit_per_person": 2,
+  "people_interrupted": 2,
+  "receipts": [
+    "Tentative planning event created — Undo available for 24h",
+    "Volunteer follow-up saved as a Gmail draft — not sent",
+    "Supply count form opened — Undo available for 24h"
+  ],
+  "timeline": [
+    "214 synthetic messages loaded",
+    "Commitment Ledger linked six decisions to source messages",
+    "Three reversible actions executed silently",
+    "Minimum quorum asked two people, not the whole group",
+    "Sunday summary prepared with six total interruptions"
+  ],
+  "disclaimer": "Synthetic demonstration data; not a measured real-world outcome."
+}

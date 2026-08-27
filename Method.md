@@ -270,6 +270,12 @@ requires `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id`. The ID follows the curre
 also hosts Slack Events, undo confirmation/execution, and the synthetic replay, so Quorum does not
 introduce another product surface.
 
+The anonymous GitHub Pages build publishes the same HTML, CSS, and JavaScript under the repository
+subpath. Relative asset URLs preserve both Runtime-root and Pages-subpath delivery. On
+`wellkilo.github.io`, the replay reads a versioned static synthetic fixture; elsewhere it calls the
+Runtime POST endpoint. CI validates the fixture provenance and an executable test prevents it from
+drifting from the Runtime replay contract.
+
 The production invoker opens an IAM-authenticated Gateway MCP client, injects its three tools into
 the five-node Graph, passes `ActionRequest` through `invocation_state`, and converts submitted
 interrupt responses into Strands `InterruptResponseContent`. Runtime session identity is not used as

@@ -14,7 +14,15 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, Slack ingress plus receipts and private questions, transactional SQLite/PostgreSQL persistence, AgentCore Runtime/Memory/Gateway adapters, PII-safe OpenTelemetry spans, signed single-use undo, an anonymous synthetic replay UI, Alembic migrations, and a 50-case synthetic evaluation suite. Live Slack, Google Workspace, and AWS production calls are not yet claimed because credentials are not configured in this development environment.
 
-No real organization data, user quote, impact result, live-demo URL, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
+No real organization data, user quote, impact result, AgentCore deployment, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
+
+## Public synthetic replay
+
+**Live demo:** https://wellkilo.github.io/Quorum/
+
+The GitHub Pages demo is an anonymous, versioned static replay of the same synthetic evidence
+contract used by the local Runtime. It demonstrates the interaction and measurement design without
+claiming a live AgentCore backend or real-world impact. The page labels both limitations directly.
 
 ## Run the verified local slice
 
@@ -261,8 +269,8 @@ Do not reuse a published example key for real data. The key must never be commit
   the installed SDK contract; no AWS Memory resource has been created from this machine.
 - OpenTelemetry correlation spans and Strands sensitive-attribute redaction are configured in code.
   No managed AgentCore trace screenshot is claimed until deployment.
-- The replay page and API are locally executable and visibly label every result synthetic. There is no
-  anonymous public URL yet.
+- The anonymous GitHub Pages replay is public and visibly labels every result synthetic. It uses a
+  versioned static evidence fixture while AWS account activation blocks an AgentCore deployment.
 
 ## Reuse and AI assistance disclosure
 
@@ -287,9 +295,9 @@ This repository was created during the hackathon submission period. As of the in
 - [x] 50-case synthetic gold set and executable metric pipeline
 - [ ] Bedrock model evaluation result
 - [x] AgentCore Runtime, Memory session manager, Gateway MCP, and safe OTEL integration code
-- [x] Locally executable anonymous synthetic replay demo
+- [x] Public anonymous synthetic replay demo
 - [ ] Deployed AgentCore resources and managed OTEL trace evidence
-- [ ] Public anonymous replay URL
+- [x] Public anonymous replay URL
 - [x] Honest empty-baseline evaluation report
 - [ ] Consented real-organization comparison and quotation
 - [ ] Architecture diagram asset
