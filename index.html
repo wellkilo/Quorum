@@ -3,123 +3,238 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Quorum synthetic replay: coordination with fewer interruptions.">
-    <title>Quorum · Synthetic week replay</title>
+    <meta name="theme-color" content="#f2f0e9">
+    <meta name="description" content="Quorum coordinates group decisions with fewer interruptions. Replay one synthetic week and inspect the evidence.">
+    <meta property="og:title" content="Quorum — coordinate more, interrupt less">
+    <meta property="og:description" content="A public synthetic replay of a low-interruption coordination agent built with Strands.">
+    <meta property="og:type" content="website">
+    <title>Quorum — coordinate more, interrupt less</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./assets/style.css">
     <script defer src="./assets/app.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#replay">Skip to replay</a>
-    <header class="masthead">
-      <a class="wordmark" href="./" aria-label="Quorum home">QUORUM<span>.</span></a>
-      <div id="evidence-mode" class="status-line">
-        <span class="status-dot" aria-hidden="true"></span>
-        Public static replay · synthetic data only
+
+    <header class="site-header">
+      <a class="wordmark" href="./" aria-label="Quorum home">
+        <span class="wordmark-symbol" aria-hidden="true">Q</span>
+        <span>Quorum</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="#replay">Replay</a>
+        <a href="#principles">How it works</a>
+      </nav>
+      <div class="header-actions">
+        <div id="evidence-mode" class="status-line">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>Static replay · synthetic data only</span>
+        </div>
+        <a class="repo-link" href="https://github.com/wellkilo/Quorum">GitHub <span aria-hidden="true">↗</span></a>
       </div>
-      <a class="repo-link" href="https://github.com/wellkilo/Quorum">View source</a>
     </header>
 
-    <main id="replay">
+    <main>
       <section class="hero" aria-labelledby="hero-title">
-        <p class="eyebrow">One week. Same group. Two coordination systems.</p>
-        <h1 id="hero-title">A useful agent should know<br><em>when not to appear.</em></h1>
-        <p class="hero-copy">
-          Quorum turns scattered promises into a source-linked ledger, routes only the minimum
-          quorum, and gives every person a hard interruption budget.
-        </p>
-        <button id="replay-button" class="replay-button" type="button">
-          <span>Replay the synthetic week</span>
-          <span class="button-time">under 10 sec</span>
-        </button>
-      </section>
-
-      <section class="comparison" aria-label="Before and after comparison">
-        <article class="week baseline-week">
-          <div class="week-heading">
-            <p class="week-label">Without Quorum</p>
-            <span>raw group traffic</span>
+        <div class="hero-copy">
+          <p class="kicker"><span>Good Neighbor Agent</span><span>AWS Agents for Humans</span></p>
+          <h1 id="hero-title">The agent that knows<br><em>when not to appear.</em></h1>
+          <p class="hero-lede">
+            Quorum turns group chatter into accountable decisions, acts only inside earned
+            boundaries, and asks the fewest people necessary.
+          </p>
+          <div class="hero-actions">
+            <button id="replay-button" class="replay-button" type="button">
+              <span>Replay one synthetic week</span>
+              <span class="button-arrow" aria-hidden="true">→</span>
+            </button>
+            <span class="action-note">No sign-in · about 4 seconds</span>
           </div>
-          <strong id="baseline-messages" class="signal-number">214</strong>
-          <p class="signal-caption">messages competed for attention</p>
-          <div class="metric-row">
-            <div><b id="baseline-decisions">3</b><span>closed decisions</span></div>
-            <div><b id="baseline-latency">3.1d</b><span>decision P50</span></div>
-          </div>
-          <div id="message-field" class="message-field" aria-hidden="true"></div>
-        </article>
-
-        <div class="quiet-track" aria-hidden="true">
-          <span>noise</span>
-          <div class="track-line"><i id="track-progress"></i></div>
-          <span>quorum</span>
         </div>
 
-        <article class="week quorum-week">
-          <div class="week-heading">
-            <p class="week-label">With Quorum</p>
-            <span>minimum necessary contact</span>
+        <aside class="attention-card" aria-label="Synthetic week attention comparison">
+          <div class="attention-heading">
+            <span>Attention ledger</span>
+            <span>Week 01 · synthetic</span>
           </div>
-          <div class="interrupt-lockup">
-            <strong id="quorum-interruptions" class="signal-number accent">6</strong>
-            <div class="budget-mark">
-              <span>interrupt budget</span>
-              <b>≤ 2</b>
-              <small>per person / rolling 7 days</small>
+          <div class="attention-comparison">
+            <div class="attention-before">
+              <span class="attention-label">Group traffic</span>
+              <strong>214</strong>
+              <span>messages</span>
+            </div>
+            <div class="attention-path" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <i>→</i>
+            </div>
+            <div class="attention-after">
+              <span class="attention-label">Quorum appears</span>
+              <strong>6</strong>
+              <span>times</span>
             </div>
           </div>
-          <p class="signal-caption">total appearances, including receipts and questions</p>
-          <div class="metric-row">
-            <div><b id="quorum-decisions">6</b><span>closed decisions</span></div>
-            <div><b id="quorum-latency">7h</b><span>decision P50</span></div>
+          <div class="budget-rule">
+            <div>
+              <span class="attention-label">Interrupt budget</span>
+              <strong>2 max</strong>
+              <span>per person · rolling 7 days</span>
+            </div>
+            <div class="budget-slots" aria-label="Two of two interruption slots">
+              <i></i><i></i>
+            </div>
           </div>
-          <div class="budget-people" aria-label="Two people each used two of two interruption slots">
-            <span><i></i><i></i> person 01</span>
-            <span><i></i><i></i> person 02</span>
-          </div>
-        </article>
+          <p>Success is measured by necessary contact, not engagement.</p>
+        </aside>
       </section>
 
-      <section class="evidence-grid">
-        <article class="run-log" aria-labelledby="run-log-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Replay trace</p>
-              <h2 id="run-log-title">What Quorum did not ask people to do</h2>
-            </div>
-            <span id="run-state" class="run-state">Ready</span>
-          </div>
-          <ol id="timeline" class="timeline" aria-live="polite">
-            <li class="placeholder">Run the replay to inspect the deterministic evidence trail.</li>
-          </ol>
-        </article>
-
-        <article class="receipts" aria-labelledby="receipts-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Group surface</p>
-              <h2 id="receipts-title">One line. Reversible.</h2>
-            </div>
-          </div>
-          <div id="receipt-list" class="receipt-list">
-            <p class="empty-receipt">Receipts will appear here, never as a new app inbox.</p>
-          </div>
-        </article>
+      <section class="proof-strip" aria-label="Verified project evidence">
+        <div><strong>50</strong><span>gold cases</span></div>
+        <div><strong>5</strong><span>Graph nodes</span></div>
+        <div><strong>24h</strong><span>undo window</span></div>
+        <div><strong>2</strong><span>interrupts / person</span></div>
+        <p>Implemented and tested locally. AWS managed deployment is not claimed.</p>
       </section>
 
-      <section class="architecture-strip" aria-label="Technical architecture summary">
-        <p class="eyebrow">The quiet path</p>
-        <div class="architecture-flow">
+      <section id="replay" class="replay-section" aria-labelledby="replay-title">
+        <div class="section-intro">
+          <p class="section-index">01 / Replay the evidence</p>
+          <div>
+            <h2 id="replay-title">Same week. Less noise.<br>More decisions closed.</h2>
+            <p>Run a versioned synthetic scenario to inspect the product and measurement contract.</p>
+          </div>
+          <span id="run-state" class="run-state" role="status" aria-live="polite">Ready</span>
+        </div>
+
+        <div class="comparison" aria-label="Before and after comparison">
+          <article class="week baseline-week">
+            <div class="week-heading">
+              <p class="week-label">Without Quorum</p>
+              <span>raw group traffic</span>
+            </div>
+            <div class="metric-main">
+              <strong id="baseline-messages" class="signal-number">214</strong>
+              <span>messages competed<br>for attention</span>
+            </div>
+            <div class="metric-row">
+              <div><b id="baseline-decisions">3</b><span>closed decisions</span></div>
+              <div><b id="baseline-latency">3.1d</b><span>decision P50</span></div>
+            </div>
+            <div id="message-field" class="message-field" aria-hidden="true"></div>
+          </article>
+
+          <div class="quiet-track" aria-hidden="true">
+            <span>noise</span>
+            <div class="track-line"><i id="track-progress"></i></div>
+            <span>signal</span>
+          </div>
+
+          <article class="week quorum-week">
+            <div class="week-heading">
+              <p class="week-label">With Quorum</p>
+              <span>minimum necessary contact</span>
+            </div>
+            <div class="metric-main quorum-main">
+              <strong id="quorum-interruptions" class="signal-number accent">6</strong>
+              <span>total appearances,<br>including receipts</span>
+            </div>
+            <div class="metric-row">
+              <div><b id="quorum-decisions">6</b><span>closed decisions</span></div>
+              <div><b id="quorum-latency">7h</b><span>decision P50</span></div>
+            </div>
+            <div class="budget-meter">
+              <span>Per-person budget</span>
+              <div><i></i><i></i><i class="blocked"></i><i class="blocked"></i></div>
+              <b>2 / 2</b>
+            </div>
+          </article>
+        </div>
+
+        <div class="evidence-grid">
+          <article class="run-log" aria-labelledby="run-log-title">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-label">Decision trace</p>
+                <h3 id="run-log-title">What Quorum handled</h3>
+              </div>
+              <span>source-linked</span>
+            </div>
+            <ol id="timeline" class="timeline" aria-live="polite">
+              <li class="placeholder">Run the replay to inspect the deterministic evidence trail.</li>
+            </ol>
+          </article>
+
+          <article class="receipts" aria-labelledby="receipts-title">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-label">Group surface</p>
+                <h3 id="receipts-title">One line. Reversible.</h3>
+              </div>
+              <span>no new inbox</span>
+            </div>
+            <div id="receipt-list" class="receipt-list">
+              <p class="empty-receipt">Receipts appear here only when an action actually happens.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="principles" class="principles-section" aria-labelledby="principles-title">
+        <div class="section-intro compact">
+          <p class="section-index">02 / The operating model</p>
+          <div>
+            <h2 id="principles-title">Four constraints keep<br>the agent quiet.</h2>
+          </div>
+        </div>
+        <div class="principle-grid">
+          <article>
+            <span>01</span>
+            <h3>Commitment Ledger</h3>
+            <p>No source message, no ledger entry. Every commitment remains inspectable.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Autonomy Ladder</h3>
+            <p>Repeated approvals earn autonomy. A rejection or undo lowers it immediately.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Minimum Quorum</h3>
+            <p>Ask only the smallest safe set of accountable people, with a visible default.</p>
+          </article>
+          <article class="featured-principle">
+            <span>04</span>
+            <h3>Interrupt Budget</h3>
+            <p>Two decision requests per person per rolling week. When spent, defer or reroute.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="architecture-section" aria-labelledby="architecture-title">
+        <div>
+          <p class="section-index">03 / The quiet path</p>
+          <h2 id="architecture-title">Policy before action.</h2>
+          <p>The model interprets language. Deterministic policy controls risk, quorum, timeouts, and interrupt spend.</p>
+        </div>
+        <div class="architecture-flow" aria-label="Technical architecture summary">
           <span>Slack</span><i>→</i><span>Strands Graph</span><i>→</i><span>Native interrupt</span>
-          <i>→</i><span>AgentCore Gateway</span><i>→</i><span>Undo receipt</span>
+          <i>→</i><span>Gateway</span><i>→</i><span>Undo receipt</span>
         </div>
-        <p>Runtime session · AgentCore Memory · PostgreSQL facts · OpenTelemetry trace</p>
+        <div class="architecture-meta">
+          <span>Runtime session</span><span>AgentCore Memory</span><span>PostgreSQL facts</span><span>PII-safe traces</span>
+        </div>
       </section>
 
       <aside class="provenance">
-        <strong>Synthetic replay</strong>
+        <strong>Synthetic evidence</strong>
         <span id="evidence-source">Versioned synthetic evidence on GitHub Pages. No live AgentCore backend or real-world pilot is claimed.</span>
         <code id="replay-id">no run yet</code>
       </aside>
     </main>
+
+    <footer class="site-footer">
+      <a class="wordmark footer-mark" href="./"><span class="wordmark-symbol">Q</span><span>Quorum</span></a>
+      <p>Coordinate more. Interrupt less.</p>
+      <a href="https://github.com/wellkilo/Quorum">Apache-2.0 · View source ↗</a>
+    </footer>
   </body>
 </html>

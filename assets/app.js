@@ -11,7 +11,7 @@ const staticEvidenceHost = window.location.hostname === 'wellkilo.github.io'
   || new URLSearchParams(window.location.search).get('mode') === 'static';
 
 if (!staticEvidenceHost) {
-  evidenceMode.lastChild.textContent = ' Runtime replay · synthetic data only';
+  evidenceMode.lastElementChild.textContent = 'Runtime replay · synthetic data only';
   evidenceSource.textContent = 'Synthetic Runtime replay. This is not a measured real-world outcome.';
 }
 
@@ -57,7 +57,8 @@ async function loadReplayData() {
 
 async function runReplay() {
   button.disabled = true;
-  button.querySelector('span').textContent = 'Replaying…';
+  button.setAttribute('aria-busy', 'true');
+  button.querySelector('span').textContent = 'Replaying the week…';
   runState.textContent = 'Running';
   runState.classList.add('live');
   comparison.classList.remove('replaying');
@@ -65,6 +66,10 @@ async function runReplay() {
   comparison.classList.add('replaying');
   timeline.replaceChildren();
   receiptList.replaceChildren();
+  document.querySelector('.comparison').scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'center',
+  });
 
   try {
     const { data, source } = await loadReplayData();
@@ -95,6 +100,7 @@ async function runReplay() {
         undo.type = 'button';
         undo.disabled = true;
         undo.textContent = 'Undo';
+        undo.title = source === 'static' ? 'Disabled in the static replay' : 'Demo receipt';
         receipt.append(text, undo);
         receiptList.append(receipt);
       }
@@ -104,11 +110,14 @@ async function runReplay() {
     runState.textContent = 'Unavailable';
     const row = document.createElement('li');
     row.className = 'placeholder';
-    row.textContent = 'The replay could not start. Run the local server and try again.';
+    row.textContent = staticEvidenceHost
+      ? 'The static replay data is unavailable. Refresh the page and try again.'
+      : 'The Runtime replay API is unavailable. Start the local server and try again.';
     timeline.replaceChildren(row);
   } finally {
     runState.classList.remove('live');
     button.disabled = false;
+    button.removeAttribute('aria-busy');
     button.querySelector('span').textContent = 'Replay again';
   }
 }
