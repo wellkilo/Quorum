@@ -14,6 +14,7 @@ PAGES_FILES = {
     "index.html": Path("index.html"),
     "style.css": Path("assets/style.css"),
     "app.js": Path("assets/app.js"),
+    "favicon.svg": Path("favicon.svg"),
     "synthetic-week.json": Path("synthetic-week.json"),
     ".nojekyll": Path(".nojekyll"),
 }

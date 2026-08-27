@@ -165,6 +165,7 @@ class RuntimeHttpContractTest(unittest.TestCase):
 
     def test_public_replay_endpoint_keeps_synthetic_provenance(self) -> None:
         home = self.client.get("/")
+        favicon = self.client.get("/favicon.svg")
         replay = self.client.post("/demo/replays/synthetic-week")
         replay_id = replay.json()["replay_id"]
         metrics = self.client.get(f"/demo/metrics/{replay_id}")
@@ -172,6 +173,9 @@ class RuntimeHttpContractTest(unittest.TestCase):
         self.assertEqual(home.status_code, 200)
         self.assertIn("synthetic data only", home.text)
         self.assertIn("No live AgentCore backend", home.text)
+        self.assertEqual(favicon.status_code, 200)
+        self.assertEqual(favicon.headers["content-type"], "image/svg+xml")
+        self.assertIn("<title", favicon.text)
         self.assertEqual(replay.status_code, 200)
         self.assertEqual(metrics.status_code, 200)
         self.assertEqual(metrics.json()["data_classification"], "synthetic")

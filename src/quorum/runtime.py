@@ -243,6 +243,9 @@ def create_app(
     async def index(_request: Request) -> Response:
         return FileResponse(DEMO_ASSET_DIRECTORY / "index.html", media_type="text/html")
 
+    async def favicon(_request: Request) -> Response:
+        return FileResponse(DEMO_ASSET_DIRECTORY / "favicon.svg", media_type="image/svg+xml")
+
     async def start_replay(_request: Request) -> Response:
         snapshot = replays.start()
         with traced_operation(
@@ -322,6 +325,7 @@ def create_app(
         return JSONResponse(payload)
 
     app.add_route("/", index, methods=["GET"], include_in_schema=False)
+    app.add_route("/favicon.svg", favicon, methods=["GET"], include_in_schema=False)
     app.mount("/assets", StaticFiles(directory=DEMO_ASSET_DIRECTORY), name="assets")
     app.add_route("/demo/replays/synthetic-week", start_replay, methods=["POST"])
     app.add_route("/demo/metrics/{replay_id}", get_metrics, methods=["GET"])

@@ -13,12 +13,14 @@ DEFAULT_ARTIFACT_DIRECTORY = Path(__file__).parents[1] / "build" / "pages"
 def validate_pages_demo(artifact_directory: Path) -> None:
     index = (artifact_directory / "index.html").read_text(encoding="utf-8")
     app = (artifact_directory / "assets" / "app.js").read_text(encoding="utf-8")
+    favicon = (artifact_directory / "favicon.svg").read_text(encoding="utf-8")
     snapshot = json.loads((artifact_directory / "synthetic-week.json").read_text(encoding="utf-8"))
 
     required = {
         "index.html",
         "assets/style.css",
         "assets/app.js",
+        "favicon.svg",
         "synthetic-week.json",
         ".nojekyll",
     }
@@ -32,6 +34,10 @@ def validate_pages_demo(artifact_directory: Path) -> None:
         raise ValueError(f"Pages artifact is missing: {', '.join(sorted(missing))}")
     if 'href="/assets/' in index or 'src="/assets/' in index or 'href="/"' in index:
         raise ValueError("Pages HTML must use project-relative URLs")
+    if 'rel="icon" href="./favicon.svg" type="image/svg+xml"' not in index:
+        raise ValueError("Pages HTML must link the project-relative SVG favicon")
+    if "<svg" not in favicon or "<title" not in favicon:
+        raise ValueError("Pages favicon must be an accessible SVG")
     if "wellkilo.github.io" not in app or "./synthetic-week.json" not in app:
         raise ValueError("Pages JavaScript must select the versioned static evidence fixture")
     if snapshot.get("data_classification") != "synthetic":

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Quorum</title>
+  <rect width="64" height="64" rx="16" fill="#102024"/>
+  <circle cx="31" cy="30" r="17" fill="none" stroke="#baf3da" stroke-width="7"/>
+  <path d="M42 42l9 9" stroke="#baf3da" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="26" cy="30" r="2.5" fill="#2946d3"/>
+  <circle cx="36" cy="30" r="2.5" fill="#2946d3"/>
+</svg>

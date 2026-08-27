@@ -26,6 +26,7 @@ class PagesDemoContractTest(unittest.TestCase):
                     "index.html",
                     "assets/style.css",
                     "assets/app.js",
+                    "favicon.svg",
                     "synthetic-week.json",
                     ".nojekyll",
                 },
@@ -58,11 +59,35 @@ class PagesDemoContractTest(unittest.TestCase):
 
         self.assertIn('href="./assets/style.css"', index)
         self.assertIn('src="./assets/app.js"', index)
+        self.assertIn('rel="icon" href="./favicon.svg" type="image/svg+xml"', index)
         self.assertNotIn('href="/"', index)
-        self.assertIn("Public static replay · synthetic data only", index)
+        self.assertIn("Static replay · synthetic data only", index)
         self.assertIn("No live AgentCore backend", index)
+        self.assertIn('id="principles"', index)
+        self.assertIn("Attention ledger", index)
+        self.assertIn("Success is measured by necessary contact, not engagement.", index)
         self.assertIn("window.location.hostname === 'wellkilo.github.io'", app)
         self.assertIn("AgentCore deployment is not claimed", app)
+
+    def test_favicon_is_branded_accessible_svg(self) -> None:
+        favicon = (DEMO_DIRECTORY / "favicon.svg").read_text(encoding="utf-8")
+
+        self.assertIn('<title id="title">Quorum</title>', favicon)
+        self.assertIn('aria-labelledby="title"', favicon)
+        self.assertIn("#baf3da", favicon)
+
+    def test_responsive_and_accessible_interaction_contract_is_preserved(self) -> None:
+        index = (DEMO_DIRECTORY / "index.html").read_text(encoding="utf-8")
+        style = (DEMO_DIRECTORY / "style.css").read_text(encoding="utf-8")
+        app = (DEMO_DIRECTORY / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn('role="status" aria-live="polite"', index)
+        self.assertIn('class="skip-link"', index)
+        self.assertIn("@media (max-width: 760px)", style)
+        self.assertIn("@media (max-width: 430px)", style)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", style)
+        self.assertIn("button.setAttribute('aria-busy', 'true')", app)
+        self.assertIn("button.removeAttribute('aria-busy')", app)
 
 
 if __name__ == "__main__":
