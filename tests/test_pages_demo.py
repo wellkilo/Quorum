@@ -40,6 +40,18 @@ class PagesDemoContractTest(unittest.TestCase):
 
         self.assertEqual(fixture, runtime)
 
+    def test_validator_rejects_evidence_not_marked_synthetic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            build_pages_demo(output)
+            fixture_path = output / "synthetic-week.json"
+            fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+            fixture["data_classification"] = "real"
+            fixture_path.write_text(json.dumps(fixture), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "must be classified as synthetic"):
+                validate_pages_demo(output)
+
     def test_pages_assets_are_project_relative_and_claim_static_evidence(self) -> None:
         index = (DEMO_DIRECTORY / "index.html").read_text(encoding="utf-8")
         app = (DEMO_DIRECTORY / "app.js").read_text(encoding="utf-8")

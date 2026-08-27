@@ -83,27 +83,15 @@ Quorum does not ask a community to adopt another application. Its complete inter
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    Slack[Slack Events API] --> Listener[Listener]
-    Listener --> Ledger[Ledger Curator]
-    Ledger --> BusinessDB[(Commitment Ledger DB)]
-    Ledger --> Risk[Risk Appraiser]
-    Risk --> Router[Minimum-Quorum Router]
-    Router --> Gate{Autonomy Hook}
-    Gate -->|interrupt| DM[One private question]
-    Gate -->|within policy| Executor[Executor]
-    DM --> Executor
-    Executor --> Gateway[AgentCore Gateway / MCP]
-    Gateway --> Tools[Calendar, email, and form tools]
-    Executor --> Receipt[Group receipt + undo]
+![Quorum system architecture](assets/quorum-architecture.svg)
 
-    Listener <--> Session[Strands Session Manager]
-    Router <--> Memory[AgentCore Memory]
-    Listener -. OTEL .-> Observe[AgentCore Observability]
-    Executor -. OTEL .-> Observe
-    Ambiguity[Strands Swarm] -. semantic ambiguity only .-> Ledger
-```
+Download the [1600x900 PNG](assets/quorum-architecture.png) for slides or video editing, or use the
+[SVG source](assets/quorum-architecture.svg) for lossless publication.
+
+Solid components are implemented and tested locally. AWS-managed boxes are dashed because the
+Runtime, Memory, Gateway, and managed observability resources have not yet been provisioned. The
+public GitHub Pages site is a separate static synthetic evidence surface, not the Runtime shown in
+the target path.
 
 The deterministic target path is a Strands Graph:
 
@@ -300,7 +288,7 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Public anonymous replay URL
 - [x] Honest empty-baseline evaluation report
 - [ ] Consented real-organization comparison and quotation
-- [ ] Architecture diagram asset
+- [x] Architecture diagram asset
 - [ ] Public YouTube or Vimeo video no longer than five minutes
 - [ ] Three public Builder Center posts with `Agents for Humans` in each title
 - [ ] AWS Builder ID added to the Devpost submission
