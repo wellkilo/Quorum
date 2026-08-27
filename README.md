@@ -29,6 +29,10 @@ The recording-ready presentation package includes the [4:50 narration](docs/vide
 and [recording checklist](docs/video/recording-checklist.md). It intentionally preserves an honest
 no-quote segment until a participant approves real wording.
 
+Three publication-ready [Builder Center drafts](docs/blog/README.md) document the product thesis,
+the native-interrupt architecture, and the evidence-first evaluation approach. They remain drafts
+until their public URLs are verified.
+
 ## Run the verified local slice
 
 Python 3.11–3.13 and [`uv`](https://docs.astral.sh/uv/) are required.

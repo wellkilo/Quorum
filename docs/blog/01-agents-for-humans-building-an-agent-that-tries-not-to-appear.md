@@ -1,47 +1,101 @@
 # Agents for Humans: Building an Agent That Tries Not to Appear
 
-Most coordination software measures engagement. Quorum starts from the opposite question: what if success means the software appears less often?
+Most coordination software measures engagement. Quorum starts from the opposite question: what if
+success means the software appears less often?
 
-Small community groups rarely fail because nobody cares. They fail in the space between a message and a commitment. Someone says they can bring the keys. Another person suggests Friday. A third assumes the decision was final. A week of conversation later, the group has produced plenty of activity but little shared certainty.
+Small community groups rarely fail because nobody cares. They fail in the space between a message
+and a commitment. Someone says they can bring the keys. Another person suggests Friday. A third
+assumes the decision was final. A week of conversation later, the group has produced plenty of
+activity but little shared certainty.
 
-I am building Quorum for the AWS Agents for Humans Hackathon in the Good Neighbor Agents track. It is a group coordination agent with one primary metric: interruptions per person per week. The default budget is two. Once the budget is spent, the agent must batch, reroute, wait for its published timeout, or choose the safe default. It cannot solve coordination by producing more notifications.
+I am building Quorum for the AWS Agents for Humans Hackathon in the Good Neighbor Agents track. It
+is a group coordination agent with one primary metric: interruptions per person per rolling week.
+The default budget is two. Once the budget is spent, the agent must batch, reroute, wait for its
+published timeout, or choose the safe default. It cannot solve coordination by producing more
+notifications.
 
 ## Four mechanisms, one product claim
 
 Quorum combines four mechanisms that have to work together.
 
-The Commitment Ledger extracts promises and decisions, but every row must point back to a source message. If the system cannot identify evidence, it does not create the record. This turns provenance from a footnote into an invariant.
+The **Commitment Ledger** extracts promises and decisions, but every row must point back to a source
+message. If the system cannot identify evidence, it does not create the record. This turns
+provenance from a footnote into an invariant.
 
-The Autonomy Ladder lets low-risk actions earn independence. Repeated approval can move an action from ask-first to notify-and-undo. A rejection, reversal, broader impact, or money resets that confidence.
+The **Autonomy Ladder** lets low-risk actions earn independence. Three consecutive approvals can
+move an action up one level. A rejection or undo moves it down. Money, broad impact, and difficult
+reversibility remain higher risk regardless of model confidence.
 
-Minimum-Quorum Routing asks the smallest sufficient set of accountable people. It is not consensus theater. A room-booking correction may need one owner; spending community funds may need two; a public commitment may need a broader decision. Every request includes a timeout and the action that silence will trigger.
+**Minimum-Quorum Routing** asks the smallest sufficient set of accountable people. It is not
+consensus theater. A reversible correction may need one owner; spending community funds requires
+two. Every request includes a 24-hour timeout and the action that silence will trigger.
 
-The Interrupt Budget forces the rest of the design to stay honest. The agent cannot hide bad product decisions behind unlimited private messages.
+The **Interrupt Budget** forces the rest of the design to stay honest. Each person gets at most two
+decision requests in a rolling seven-day window. When the budget is unavailable, routing moves to
+the next eligible person or defers the action. The agent cannot hide a weak policy behind unlimited
+private messages.
 
 ## Why Strands Graph and interrupts matter
 
-The main orchestration path will be a deterministic Strands Graph:
+The main orchestration path is a five-node Strands Graph:
 
 ```text
 Listener -> Ledger Curator -> Risk Appraiser -> Quorum Router -> Executor
 ```
 
-The model helps interpret messy language, but it does not get to bypass policy. Before a consequential tool call, a Strands hook evaluates reversibility, impact radius, spending, earned autonomy, quorum, timeout behavior, and interrupt spend. If human judgment is required, the hook raises a native interrupt and execution pauses until the response is bound to that interrupt.
+The Listener and Ledger Curator use typed model output to interpret language. The Risk Appraiser and
+Quorum Router are deterministic nodes. Model prose cannot change the risk score, autonomy level,
+quorum size, timeout, or interruption spend. Strands Swarm is reserved for the narrow case where
+meaning is genuinely ambiguous; it is not the routine orchestrator.
 
-Strands Swarm is reserved for the narrow case where meaning is genuinely ambiguous. Routine orchestration stays inspectable. Amazon Bedrock AgentCore will provide the runtime, durable organizational memory, MCP tools through Gateway, and OpenTelemetry-compatible observability. Runtime sessions, orchestration state, and long-term memory will remain explicit separate layers.
+Before a consequential tool call, a Strands `BeforeToolCallEvent` hook loads the persisted policy,
+verifies the tool name and canonical argument fingerprint, and calls the SDK's native interrupt
+mechanism when approval is still required. Missing, expired, rejected, or mismatched decisions fail
+closed. This matters because autonomy is not a setting around the agent. It is enforced at the tool
+boundary.
 
-## Evidence before impact claims
+## Build the evidence boundary before the claim
 
-There is no pilot organization yet, so there is no real-world result to report. Early demos will use data that is visibly labeled synthetic. The public repository includes a local redaction tool and consent template before it includes a real chat export.
+There is no pilot organization yet, so there is no real-world result or participant quotation to
+report. The public demo therefore uses a versioned dataset that is labeled `synthetic` in both the
+page and the JSON response. The current scenario shows 214 messages, three closed decisions, and a
+74.4-hour median decision time before Quorum; the replay shows six total appearances, six closed
+decisions, and a seven-hour median. Those values demonstrate the interaction and measurement
+contract. They are not measured community impact.
 
-The evaluation plan reflects my quality-engineering background. A 50-case human-labeled set will measure commitment-extraction precision, miss rate, and hallucination rate. A prediction without a valid source-message reference will count as hallucinated even if it sounds plausible.
+The public replay is available at <https://wellkilo.github.io/Quorum/>. It is intentionally static
+while my AWS account activation blocks a live AgentCore deployment, and the page says so directly.
+The same HTML and JavaScript call the real replay API when hosted by the local AgentCore-compatible
+application. A build-time validator rejects the public artifact if its provenance label, interrupt
+budget, baseline, or disclaimer changes unexpectedly.
 
-For impact, the same week will eventually be replayed under two conditions. The comparison will report messages, closed decisions, decision-latency P50, total interruptions, and undo rate. A participant quotation will appear only if a real participant approves its exact final wording.
+## Quality engineering is part of the product
 
-## The first build decision
+The repository includes a 50-case synthetic gold set for commitment extraction. It covers creates,
+updates, cancellations, multiple commitments, ambiguity, and pure negatives across six frozen task
+classes. The evaluator reports exact-match accuracy, miss rate, and hallucination rate. A prediction
+without a valid source reference and verbatim evidence span is rejected and counted as
+hallucinated.
 
-The first artifact was not an agent prompt. It was a boundary: no raw personal data in Git, no unverified product claim in the README, and no action without a documented authority path.
+The committed empty baseline produces 20 percent exact-match accuracy, 100 percent miss rate, and
+zero percent hallucination rate. That is not a useful model result: the 20 percent comes entirely
+from ten negative cases where returning nothing happens to be correct. Publishing that intentionally
+bad baseline makes the metric semantics inspectable before any Bedrock score exists.
 
-That may look slower than starting with a chatbot. It is the shortest path to the product I want to demonstrate: an agent that can earn enough trust to stay quiet.
+The repository also tests tenant isolation, append-only audit evidence, rolling interruption spend,
+multi-person native interrupts, single-use undo, provider uncertainty, static-demo provenance, and
+the public architecture and video contracts.
 
-The next build milestone is a vertical slice in Slack: one message becomes one evidence-linked commitment, passes through the risk and quorum policies, and produces either one private question or one reversible group receipt. The counter that matters will already be visible: how many times did Quorum decide not to interrupt?
+## What is available now
+
+- Public source: <https://github.com/wellkilo/Quorum>
+- Anonymous synthetic replay: <https://wellkilo.github.io/Quorum/>
+- Apache-2.0 license, reproducible local commands, and explicit known limits
+- Strands Graph, native hook interrupt, AgentCore Runtime/Memory/Gateway adapters, PostgreSQL
+  persistence, reversible tools, and PII-safe OpenTelemetry code
+- No claim yet of live AWS resources, real Slack or Google Workspace calls, a Bedrock model score,
+  or real-world impact
+
+The next evidence milestone is not another feature. It is a consented pilot and a verified cloud
+deployment. Until those exist, Quorum will keep the boundary visible. An agent designed to earn
+trust should be honest about what it has not earned yet.
