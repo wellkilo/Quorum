@@ -20,21 +20,21 @@ Create the draft early and keep these fields aligned with the public repository:
 - Repository: <https://github.com/wellkilo/Quorum>
 - License: Apache-2.0
 - Built with: Strands Agents SDK and Amazon Bedrock AgentCore
-- Live demo: leave blank until anonymous access is verified
+- Live demo: <https://wellkilo.github.io/Quorum/>
 - Video: leave blank until a public YouTube or Vimeo upload is verified
 - AWS Builder ID: enter the account's actual Builder ID; the generic profile URL is not a public identifier
 
 ## Evidence checklist
 
-- [ ] Repository is public.
-- [ ] GitHub recognizes the root `LICENSE` as Apache-2.0.
+- [x] Repository is public.
+- [x] GitHub recognizes the root `LICENSE` as Apache-2.0.
 - [ ] README setup commands work from a clean environment.
 - [ ] Architecture diagram matches the deployed path.
 - [ ] Video is public, five minutes or shorter, and demonstrates the working project.
-- [ ] Public demo works without an invitation, private account, or payment.
+- [x] Public demo works without an invitation, private account, or payment.
 - [ ] Demo remains online through the end of judging.
 - [ ] All real-world metrics have provenance and consent.
-- [ ] All synthetic metrics are visibly labeled synthetic.
+- [x] All synthetic metrics are visibly labeled synthetic.
 - [ ] Three Builder Center URLs are included and each title contains `Agents for Humans`.
 - [ ] Pre-existing code and AI assistance are disclosed.
 

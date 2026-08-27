@@ -1,0 +1,105 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.000
+This is one synthetic week in a small volunteer group:
+214 messages and only three closed decisions.
+
+00:00:08.000 --> 00:00:17.000
+Median decision time is 3.1 days. The problem is not
+a lack of communication.
+
+00:00:17.000 --> 00:00:25.000
+Commitments disappear inside the conversation.
+This is demonstration data, not a pilot result.
+
+00:00:25.000 --> 00:00:36.000
+Most agents optimize for how often they can help.
+Quorum optimizes for how rarely it has to appear.
+
+00:00:36.000 --> 00:00:50.000
+Every person gets a hard budget of two interruptions per rolling week.
+When it is spent, Quorum must reroute, batch, wait, or use the safe default.
+
+00:00:50.000 --> 00:01:03.000
+Now I will replay that same synthetic week. Quorum turns
+scattered promises into a Commitment Ledger.
+
+00:01:03.000 --> 00:01:15.000
+Every entry retains its source-message reference
+and a verbatim evidence span.
+
+00:01:15.000 --> 00:01:25.000
+If the source cannot be proven, the ledger rejects the extraction
+instead of inventing certainty.
+
+00:01:25.000 --> 00:01:38.000
+Three low-risk actions can complete without another group discussion:
+a tentative calendar event, a Gmail draft, and a form request.
+
+00:01:38.000 --> 00:01:55.000
+The draft is never sent. Each action produces one short group receipt.
+The signed undo path expires after 24 hours and can be used only once.
+
+00:01:55.000 --> 00:02:08.000
+When judgment is required, Quorum does not poll the room.
+It asks only the smallest sufficient set of accountable people.
+
+00:02:08.000 --> 00:02:20.000
+Every question states its timeout and default.
+Only two people are contacted in this replay.
+
+00:02:20.000 --> 00:02:30.000
+Neither can exceed two requests in seven days.
+If no safe quorum remains, the action is deferred.
+
+00:02:30.000 --> 00:02:43.000
+The main path is a five-node Strands Graph: Listener, Ledger Curator,
+Risk Appraiser, Quorum Router, and Executor.
+
+00:02:43.000 --> 00:02:57.000
+Risk and routing are deterministic. Model prose cannot change
+the score, quorum, timeout, autonomy, or interruption spend.
+
+00:02:57.000 --> 00:03:08.000
+Strands Swarm is used only for bounded semantic ambiguity.
+A native hook interrupt guards every tool call and fails closed.
+
+00:03:08.000 --> 00:03:20.000
+The target uses AgentCore Runtime, Memory, and Gateway. PostgreSQL stores
+business facts. PII-safe traces exclude prompts and tool payloads.
+
+00:03:20.000 --> 00:03:33.000
+Here is the same synthetic scenario side by side:
+214 raw messages and three closed decisions.
+
+00:03:33.000 --> 00:03:46.000
+Quorum appears six times, closes six decisions, and moves median
+decision time from 74.4 hours to seven hours.
+
+00:03:46.000 --> 00:03:56.000
+The scenario reports a 16.7 percent undo rate,
+so reversals stay visible instead of hidden.
+
+00:03:56.000 --> 00:04:06.000
+These numbers demonstrate the measurement contract.
+They are not measured community impact.
+
+00:04:06.000 --> 00:04:15.000
+A 50-case synthetic gold set reports precision, miss rate,
+and hallucination rate with strict source grounding.
+
+00:04:15.000 --> 00:04:25.000
+There is no participant quotation in this cut because no real organization
+has provided consented data or approved wording.
+
+00:04:25.000 --> 00:04:35.000
+A real quote will replace this segment only after the participant
+approves the exact sentence and its public use.
+
+00:04:35.000 --> 00:04:45.000
+Quorum asks not how much an agent can say, but how much coordination
+it can complete before it needs to speak.
+
+00:04:45.000 --> 00:04:50.000
+The public replay and source are available now.
+The submission shows the entrant's actual AWS Builder ID.

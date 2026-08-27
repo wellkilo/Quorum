@@ -24,6 +24,11 @@ The GitHub Pages demo is an anonymous, versioned static replay of the same synth
 contract used by the local Runtime. It demonstrates the interaction and measurement design without
 claiming a live AgentCore backend or real-world impact. The page labels both limitations directly.
 
+The recording-ready presentation package includes the [4:50 narration](docs/video/script.md),
+[shot-by-shot storyboard](docs/video/storyboard.md), [English WebVTT captions](docs/video/quorum-demo.en.vtt),
+and [recording checklist](docs/video/recording-checklist.md). It intentionally preserves an honest
+no-quote segment until a participant approves real wording.
+
 ## Run the verified local slice
 
 Python 3.11–3.13 and [`uv`](https://docs.astral.sh/uv/) are required.
