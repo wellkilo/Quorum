@@ -75,7 +75,7 @@ async function runReplay() {
     const { data, source } = await loadReplayData();
     replayId.textContent = data.replay_id;
     evidenceSource.textContent = source === 'static'
-      ? 'Versioned static evidence replay on GitHub Pages. AgentCore deployment is not claimed.'
+      ? 'Versioned static replay on GitHub Pages. A short-lived AgentCore Runtime deployment is verified separately; this page is not AgentCore-hosted.'
       : data.disclaimer;
 
     document.querySelector('#baseline-messages').textContent = data.baseline.message_count;
