@@ -292,6 +292,9 @@ the Runtime, archive, and bucket; AgentCore owns the lifecycle of the Runtime's 
 and workload identity. The workflow also attempts cleanup after a failed AWS deployment step. The
 temporary SQLite path under `/tmp` is suitable only for this stateless deployment check and is not
 documented as durable business persistence.
+The one-time IAM bootstrap also creates the AWS-managed Runtime Identity service-linked role when
+the account does not have it; the GitHub deployer role is deliberately not allowed to create IAM
+service-linked roles.
 The archive places `agentcore_main.py` at its root as `main.py`, matching the direct-code Runtime
 contract, while the application implementation remains in `quorum.runtime`.
 

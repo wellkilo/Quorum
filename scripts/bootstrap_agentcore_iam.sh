@@ -11,6 +11,7 @@ OBJECT_KEY="${QUORUM_AGENTCORE_OBJECT_KEY:-runtime/quorum-agentcore-runtime.zip}
 DEPLOYER_ROLE="QuorumAgentCoreDeployerRole"
 RUNTIME_ROLE="QuorumAgentCoreRuntimeRole"
 OIDC_PROVIDER_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
+RUNTIME_IDENTITY_SLR="AWSServiceRoleForBedrockAgentCoreRuntimeIdentity"
 
 work_dir="$(mktemp -d)"
 trap 'rm -rf "$work_dir"' EXIT
@@ -253,6 +254,11 @@ if ! "${AWS_CLI}" iam get-open-id-connect-provider \
     --url "https://token.actions.githubusercontent.com" \
     --client-id-list "sts.amazonaws.com" \
     --tags Key=Project,Value=Quorum >/dev/null
+fi
+
+if ! "${AWS_CLI}" iam get-role --role-name "${RUNTIME_IDENTITY_SLR}" >/dev/null 2>&1; then
+  "${AWS_CLI}" iam create-service-linked-role \
+    --aws-service-name runtime-identity.bedrock-agentcore.amazonaws.com >/dev/null
 fi
 
 if ! "${AWS_CLI}" iam get-role --role-name "${DEPLOYER_ROLE}" >/dev/null 2>&1; then
