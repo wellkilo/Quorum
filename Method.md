@@ -285,11 +285,13 @@ drifting from the Runtime replay contract.
 
 The manual GitHub Actions deployment uses OIDC-scoped short-lived AWS credentials. It builds a
 Python 3.13 Linux arm64 CodeZip, stores it in a private one-day-lifecycle S3 bucket, and creates or
-updates only `QuorumRuntime`. The Runtime role has no model allow statement and explicitly denies
+updates only `QuorumRuntime` and its AgentCore-managed endpoint and workload identity. The Runtime
+role has no model allow statement and explicitly denies
 `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream`. A cleanup operation removes
-the Runtime, its default Runtime endpoint, archive, and bucket; the workflow also attempts cleanup
-after a failed AWS deployment step. The temporary SQLite path under `/tmp` is suitable only for
-this stateless deployment check and is not documented as durable business persistence.
+the Runtime, archive, and bucket; AgentCore owns the lifecycle of the Runtime's managed endpoint
+and workload identity. The workflow also attempts cleanup after a failed AWS deployment step. The
+temporary SQLite path under `/tmp` is suitable only for this stateless deployment check and is not
+documented as durable business persistence.
 The archive places `agentcore_main.py` at its root as `main.py`, matching the direct-code Runtime
 contract, while the application implementation remains in `quorum.runtime`.
 

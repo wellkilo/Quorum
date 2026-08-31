@@ -45,7 +45,11 @@ jq -n \
       {
         Sid: "ListAgentRuntimesInTokyo",
         Effect: "Allow",
-        Action: "bedrock-agentcore:ListAgentRuntimes",
+        Action: [
+          "bedrock-agentcore:ListAgentRuntimes",
+          "bedrock-agentcore:ListAgentRuntimeVersions",
+          "bedrock-agentcore:ListAgentRuntimeEndpoints"
+        ],
         Resource: "*",
         Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
@@ -68,6 +72,48 @@ jq -n \
         Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
       {
+        Sid: "ManageRuntimeWorkloadIdentityInTokyo",
+        Effect: "Allow",
+        Action: [
+          "bedrock-agentcore:CreateWorkloadIdentity",
+          "bedrock-agentcore:GetWorkloadIdentity",
+          "bedrock-agentcore:DeleteWorkloadIdentity"
+        ],
+        Resource: [
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default"),
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/" + $runtime_name + "-*")
+        ],
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+      },
+      {
+        Sid: "TagNewQuorumRuntimeInTokyo",
+        Effect: "Allow",
+        Action: "bedrock-agentcore:TagResource",
+        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/*"),
+        Condition: {
+          StringEquals: {
+            "aws:RequestedRegion": $region,
+            "aws:RequestTag/Project": "Quorum",
+            "aws:RequestTag/DataClassification": "SyntheticOnly",
+            "aws:RequestTag/CostMode": "ZeroModel"
+          },
+          "ForAllValues:StringEquals": {
+            "aws:TagKeys": ["Project", "DataClassification", "CostMode"]
+          }
+        }
+      },
+      {
+        Sid: "ReadTagsForQuorumRuntimeResourcesInTokyo",
+        Effect: "Allow",
+        Action: "bedrock-agentcore:ListTagsForResource",
+        Resource: [
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/" + $runtime_name + "-*"),
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/" + $runtime_name + "-*/runtime-endpoint/*"),
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/" + $runtime_name + "-*")
+        ],
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+      },
+      {
         Sid: "ManageOnlyQuorumRuntime",
         Effect: "Allow",
         Action: [
@@ -76,8 +122,7 @@ jq -n \
           "bedrock-agentcore:DeleteAgentRuntime",
           "bedrock-agentcore:GetAgentRuntimeEndpoint",
           "bedrock-agentcore:UpdateAgentRuntimeEndpoint",
-          "bedrock-agentcore:DeleteAgentRuntimeEndpoint",
-          "bedrock-agentcore:ListAgentRuntimeEndpoints"
+          "bedrock-agentcore:DeleteAgentRuntimeEndpoint"
         ],
         Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/" + $runtime_name + "-*"),
         Condition: {StringEquals: {"aws:RequestedRegion": $region}}
