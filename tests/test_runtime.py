@@ -5,9 +5,11 @@ import hmac
 import json
 import time
 import unittest
+from unittest.mock import AsyncMock
 
 from starlette.testclient import TestClient
 
+from quorum.orchestration import OnlineConfigurationError
 from quorum.runtime import RuntimeInvocation, create_app
 
 SESSION_HEADER = "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id"
@@ -114,6 +116,40 @@ class RuntimeHttpContractTest(unittest.TestCase):
         self.assertEqual(response.json()["session_id"], VALID_SESSION_ID)
         self.assertEqual(len(self.invoker.calls), 1)
         self.assertEqual(self.invoker.calls[0][0].organization_id, "org_opaque")
+
+    def test_disabled_model_access_returns_503_without_leaking_a_trace(self) -> None:
+        invoker = AsyncMock(
+            side_effect=OnlineConfigurationError(
+                "Bedrock model calls are disabled; set QUORUM_BEDROCK_ENABLED=true only for "
+                "a controlled run"
+            )
+        )
+        client = TestClient(
+            create_app(
+                runtime_invoker=invoker,
+                slack_processor=self.processor,
+                undo_executor=self.undoer,
+                slack_signing_secret=self.signing_secret,
+                slack_pseudonym_key=b"stage-four-pseudonym-key",
+            )
+        )
+
+        response = client.post(
+            "/invocations",
+            json=invocation_payload(),
+            headers={SESSION_HEADER: VALID_SESSION_ID},
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {
+                "error": (
+                    "Bedrock model calls are disabled; set QUORUM_BEDROCK_ENABLED=true only "
+                    "for a controlled run"
+                )
+            },
+        )
 
     def test_slack_url_verification_and_signed_message_ack(self) -> None:
         timestamp = str(int(time.time()))

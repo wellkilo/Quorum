@@ -164,6 +164,17 @@ The repository contains executable adapters for AgentCore Runtime, Memory, and a
 Gateway Lambda target. Provisioning still requires an AWS account, region, IAM roles, a packaged
 Lambda, and external service credentials; no cloud deployment is claimed here.
 
+The production model path is disabled by default. Deployment, health checks, and the synthetic demo
+cannot invoke Bedrock until an operator deliberately opens the cost gate for a bounded run:
+
+```bash
+export QUORUM_BEDROCK_ENABLED='true'
+export QUORUM_BEDROCK_MAX_TOKENS='384'
+```
+
+Keep the gate closed during infrastructure provisioning and static demo verification. The token cap
+limits output per call; it is not an AWS account-level spending cap.
+
 ```bash
 uv run quorum-provision-memory --region '<aws-region>'
 uv run quorum-provision-gateway \
@@ -175,11 +186,22 @@ export QUORUM_AGENTCORE_MEMORY_ID='<memory-id-from-the-first-command>'
 export QUORUM_AGENTCORE_GATEWAY_URL='<https-gateway-url>/mcp'
 ```
 
-The deployment CLI interface was checked with `@aws/agentcore@0.28.0`; it requires Node.js 20 or
+The deployment CLI interface was checked with `@aws/agentcore@0.28.1`; it requires Node.js 20 or
 later. After installing it, configure `src/quorum/runtime.py` as the Python entrypoint and deploy from
 an AWS-authenticated environment. The older Python Starter Toolkit CLI now prints a deprecation
 warning, so it is not the documented production path. Exact cloud commands will be checked in only
 after they are exercised against the target AWS account.
+
+The checked-in `Deploy AgentCore Runtime` GitHub Actions workflow is manual-only and authenticates
+through GitHub OIDC. It deploys a Python 3.13 arm64 CodeZip without ECR or CodeBuild. The execution
+role has an explicit deny for `bedrock:InvokeModel*`, while the runtime environment keeps
+`QUORUM_BEDROCK_ENABLED=false`. The workflow's cleanup operation deletes both the Runtime and its
+temporary private S3 artifact bucket. Runtime verification intentionally invokes the disabled path
+once, expects the documented `503`, and stops that session immediately.
+
+This deployment is evidence for AgentCore Runtime hosting only. The public anonymous experience
+remains GitHub Pages; AgentCore's invoke API is IAM-authenticated. PostgreSQL, AgentCore Memory, and
+Gateway are separate production integrations and are not implied by a Runtime-only deployment.
 
 ### Database configuration
 

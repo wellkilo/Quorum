@@ -270,11 +270,27 @@ requires `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id`. The ID follows the curre
 also hosts Slack Events, undo confirmation/execution, and the synthetic replay, so Quorum does not
 introduce another product surface.
 
+The production model path is fail-closed. `BedrockSettings.from_environment()` rejects Runtime,
+Slack processing, and model-evaluation work unless `QUORUM_BEDROCK_ENABLED=true` is set explicitly.
+Runtime returns HTTP `503` before constructing Memory, Gateway, or Bedrock clients when the gate is
+closed. Slack ingress performs the same preflight before accepting work for background processing.
+`QUORUM_BEDROCK_MAX_TOKENS` defaults to 384 and is constrained to 64–1024. It limits output per call,
+but it is not described as an account-level cost cap.
+
 The anonymous GitHub Pages build publishes the same HTML, CSS, and JavaScript under the repository
 subpath. Relative asset URLs preserve both Runtime-root and Pages-subpath delivery. On
 `wellkilo.github.io`, the replay reads a versioned static synthetic fixture; elsewhere it calls the
 Runtime POST endpoint. CI validates the fixture provenance and an executable test prevents it from
 drifting from the Runtime replay contract.
+
+The manual GitHub Actions deployment uses OIDC-scoped short-lived AWS credentials. It builds a
+Python 3.13 Linux arm64 CodeZip, stores it in a private one-day-lifecycle S3 bucket, and creates or
+updates only `QuorumRuntime`. The Runtime role has no model allow statement and explicitly denies
+`bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream`. A cleanup operation removes
+the Runtime, archive, and bucket. The temporary SQLite path under `/tmp` is suitable only for this
+stateless deployment check and is not documented as durable business persistence.
+The archive places `agentcore_main.py` at its root as `main.py`, matching the direct-code Runtime
+contract, while the application implementation remains in `quorum.runtime`.
 
 The production invoker opens an IAM-authenticated Gateway MCP client, injects its three tools into
 the five-node Graph, passes `ActionRequest` through `invocation_state`, and converts submitted

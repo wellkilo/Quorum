@@ -18,10 +18,48 @@ from quorum.orchestration import (
 
 
 class StrandsGraphTest(unittest.TestCase):
-    def test_region_is_required_instead_of_guessed(self) -> None:
+    def test_model_access_is_disabled_by_default(self) -> None:
         with (
             patch.dict(os.environ, {}, clear=True),
+            self.assertRaisesRegex(OnlineConfigurationError, "model calls are disabled"),
+        ):
+            BedrockSettings.from_environment()
+
+    def test_region_is_required_instead_of_guessed(self) -> None:
+        with (
+            patch.dict(os.environ, {"QUORUM_BEDROCK_ENABLED": "true"}, clear=True),
             self.assertRaisesRegex(OnlineConfigurationError, "QUORUM_AWS_REGION"),
+        ):
+            BedrockSettings.from_environment()
+
+    def test_enabled_model_run_has_a_bounded_output_limit(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "QUORUM_BEDROCK_ENABLED": "true",
+                "QUORUM_AWS_REGION": "ap-northeast-1",
+                "QUORUM_BEDROCK_MAX_TOKENS": "128",
+            },
+            clear=True,
+        ):
+            settings = BedrockSettings.from_environment()
+
+        self.assertEqual(settings.region_name, "ap-northeast-1")
+        self.assertEqual(settings.max_tokens, 128)
+        self.assertEqual(build_bedrock_model(settings).config["max_tokens"], 128)
+
+    def test_model_output_limit_rejects_unbounded_values(self) -> None:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "QUORUM_BEDROCK_ENABLED": "true",
+                    "QUORUM_AWS_REGION": "ap-northeast-1",
+                    "QUORUM_BEDROCK_MAX_TOKENS": "4096",
+                },
+                clear=True,
+            ),
+            self.assertRaisesRegex(OnlineConfigurationError, "between 64 and 1024"),
         ):
             BedrockSettings.from_environment()
 

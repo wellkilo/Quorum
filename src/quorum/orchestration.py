@@ -25,6 +25,9 @@ from quorum.models import (
 from quorum.prompts import LEDGER_CURATOR_SYSTEM_PROMPT, LISTENER_SYSTEM_PROMPT
 
 DEFAULT_MODEL_ID = "global.amazon.nova-2-lite-v1:0"
+DEFAULT_MAX_TOKENS = 384
+MIN_MAX_TOKENS = 64
+MAX_MAX_TOKENS = 1024
 
 
 class OnlineConfigurationError(RuntimeError):
@@ -39,9 +42,20 @@ class GraphOutputError(RuntimeError):
 class BedrockSettings:
     region_name: str
     model_id: str = DEFAULT_MODEL_ID
+    max_tokens: int = DEFAULT_MAX_TOKENS
 
     @classmethod
     def from_environment(cls) -> BedrockSettings:
+        enabled = os.environ.get("QUORUM_BEDROCK_ENABLED", "").strip().lower()
+        if enabled not in {"1", "true"}:
+            if enabled not in {"", "0", "false"}:
+                raise OnlineConfigurationError(
+                    "QUORUM_BEDROCK_ENABLED must be true, false, 1, or 0"
+                )
+            raise OnlineConfigurationError(
+                "Bedrock model calls are disabled; set QUORUM_BEDROCK_ENABLED=true only for "
+                "a controlled run"
+            )
         region = os.environ.get("QUORUM_AWS_REGION", "").strip()
         if not region:
             raise OnlineConfigurationError(
@@ -50,7 +64,18 @@ class BedrockSettings:
         model_id = os.environ.get("QUORUM_BEDROCK_MODEL_ID", DEFAULT_MODEL_ID).strip()
         if not model_id:
             raise OnlineConfigurationError("QUORUM_BEDROCK_MODEL_ID cannot be empty")
-        return cls(region_name=region, model_id=model_id)
+        raw_max_tokens = os.environ.get(
+            "QUORUM_BEDROCK_MAX_TOKENS", str(DEFAULT_MAX_TOKENS)
+        ).strip()
+        try:
+            max_tokens = int(raw_max_tokens)
+        except ValueError as exc:
+            raise OnlineConfigurationError("QUORUM_BEDROCK_MAX_TOKENS must be an integer") from exc
+        if not MIN_MAX_TOKENS <= max_tokens <= MAX_MAX_TOKENS:
+            raise OnlineConfigurationError(
+                f"QUORUM_BEDROCK_MAX_TOKENS must be between {MIN_MAX_TOKENS} and {MAX_MAX_TOKENS}"
+            )
+        return cls(region_name=region, model_id=model_id, max_tokens=max_tokens)
 
 
 def build_bedrock_model(settings: BedrockSettings) -> BedrockModel:
@@ -59,6 +84,7 @@ def build_bedrock_model(settings: BedrockSettings) -> BedrockModel:
     return BedrockModel(
         model_id=settings.model_id,
         region_name=settings.region_name,
+        max_tokens=settings.max_tokens,
         temperature=0.0,
         top_p=0.1,
     )

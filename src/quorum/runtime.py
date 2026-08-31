@@ -42,6 +42,7 @@ from quorum.observability import (
 )
 from quorum.orchestration import (
     BedrockSettings,
+    OnlineConfigurationError,
     build_bedrock_model,
     build_ledger_graph,
     process_event_async,
@@ -237,7 +238,7 @@ def create_app(
             return await invoker(payload, session_id)
         except ValidationError:
             return JSONResponse({"error": "invalid invocation payload"}, status_code=422)
-        except RuntimeConfigurationError as exc:
+        except (OnlineConfigurationError, RuntimeConfigurationError) as exc:
             return JSONResponse({"error": str(exc)}, status_code=503)
 
     async def index(_request: Request) -> Response:
@@ -282,6 +283,11 @@ def create_app(
             event = converter.to_canonical(payload)
             if event is None:
                 return JSONResponse({"accepted": False, "reason": "ignored_event"})
+            if slack_processor is None:
+                try:
+                    BedrockSettings.from_environment()
+                except OnlineConfigurationError as exc:
+                    return JSONResponse({"error": str(exc)}, status_code=503)
             return JSONResponse(
                 {"accepted": True, "event_id": event.message_id},
                 background=BackgroundTask(active_slack_processor, event),

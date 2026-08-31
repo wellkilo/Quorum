@@ -1,0 +1,149 @@
+name: Deploy AgentCore Runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Deploy or remove the zero-model Runtime
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - cleanup
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: quorum-agentcore-runtime
+  cancel-in-progress: false
+
+env:
+  AWS_ACCOUNT_ID: "463092208284"
+  AWS_REGION: ap-northeast-1
+  AWS_DEFAULT_REGION: ap-northeast-1
+  AWS_PAGER: ""
+  AWS_CLI: aws
+  QUORUM_AGENTCORE_RUNTIME_NAME: QuorumRuntime
+  QUORUM_AGENTCORE_BUCKET: quorum-agentcore-code-463092208284-ap-northeast-1
+  QUORUM_AGENTCORE_OBJECT_KEY: runtime/quorum-agentcore-runtime.zip
+  QUORUM_BEDROCK_ENABLED: "false"
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the reviewed main branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: arn:aws:iam::463092208284:role/QuorumAgentCoreDeployerRole
+          role-session-name: quorum-agentcore-github
+          aws-region: ap-northeast-1
+          allowed-account-ids: "463092208284"
+          mask-aws-account-id: true
+
+      - name: Confirm non-root deployment identity
+        run: |
+          set -euo pipefail
+          caller_arn="$(aws sts get-caller-identity --query Arn --output text)"
+          case "$caller_arn" in
+            arn:aws:sts::*:assumed-role/QuorumAgentCoreDeployerRole/*) ;;
+            *) echo "Unexpected AWS identity: $caller_arn" >&2; exit 1 ;;
+          esac
+          echo "Authenticated with the scoped Quorum deployer role."
+
+      - name: Install uv
+        if: inputs.operation == 'deploy'
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.11.15"
+          enable-cache: true
+
+      - name: Build Linux arm64 CodeZip
+        if: inputs.operation == 'deploy'
+        run: |
+          set -euo pipefail
+          mkdir -p .agentcore-build/staging dist
+          uv pip install \
+            -r pyproject.toml \
+            --extra runtime \
+            --target .agentcore-build/staging \
+            --python-version 3.13 \
+            --python-platform aarch64-manylinux2014 \
+            --only-binary :all:
+          python3 scripts/package_agentcore_runtime.py \
+            --staging-dir .agentcore-build/staging \
+            --source-dir src \
+            --output dist/quorum-agentcore-runtime.zip
+
+      - name: Deploy or update zero-model Runtime
+        if: inputs.operation == 'deploy'
+        env:
+          QUORUM_AGENTCORE_ARTIFACT: dist/quorum-agentcore-runtime.zip
+        run: bash scripts/deploy_agentcore_runtime.sh
+
+      - name: Wait for Runtime readiness
+        if: inputs.operation == 'deploy'
+        run: |
+          set -euo pipefail
+          runtime_id="$(aws bedrock-agentcore-control list-agent-runtimes \
+            --query "agentRuntimes[?agentRuntimeName=='QuorumRuntime'].agentRuntimeId | [0]" \
+            --output text)"
+          test -n "$runtime_id" && test "$runtime_id" != "None"
+          for attempt in $(seq 1 60); do
+            status="$(aws bedrock-agentcore-control get-agent-runtime \
+              --agent-runtime-id "$runtime_id" --query status --output text)"
+            echo "Runtime status: $status"
+            case "$status" in
+              READY) break ;;
+              CREATE_FAILED|UPDATE_FAILED) exit 1 ;;
+            esac
+            if [[ "$attempt" == "60" ]]; then
+              echo "Runtime did not become ready within five minutes." >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          runtime_arn="$(aws bedrock-agentcore-control get-agent-runtime \
+            --agent-runtime-id "$runtime_id" --query agentRuntimeArn --output text)"
+          echo "RUNTIME_ID=$runtime_id" >>"$GITHUB_ENV"
+          echo "RUNTIME_ARN=$runtime_arn" >>"$GITHUB_ENV"
+
+      - name: Verify the model path is fail-closed
+        if: inputs.operation == 'deploy'
+        run: |
+          set -euo pipefail
+          session_id="quorum-verification-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-00000000000000000000"
+          stop_session() {
+            aws bedrock-agentcore stop-runtime-session \
+              --agent-runtime-arn "$RUNTIME_ARN" \
+              --runtime-session-id "$session_id" >/dev/null 2>&1 || true
+          }
+          trap stop_session EXIT
+          printf '%s' '{"organization_id":"org_synthetic","prompt":"Verify the disabled model gate.","data_classification":"synthetic","action_request":{"schema_version":"1.0","action_id":"action_synthetic","organization_id":"org_synthetic","requested_by_id":"person_synthetic","action_class":"event_decision","tool_name":"calendar_create_tentative_event","summary":"Synthetic verification request","reversibility":"reversible","impact_radius":"individual","money_impact":"none","candidate_decider_ids":["person_synthetic"],"action_arguments":{},"requested_at":"2026-08-31T00:00:00Z"},"interrupt_responses":[]}' >invocation.json
+          set +e
+          aws bedrock-agentcore invoke-agent-runtime \
+            --agent-runtime-arn "$RUNTIME_ARN" \
+            --runtime-session-id "$session_id" \
+            --content-type application/json \
+            --accept application/json \
+            --payload fileb://invocation.json \
+            invocation-response.json 2>invocation-error.txt
+          invoke_exit=$?
+          set -e
+          if ! grep -F "Bedrock model calls are disabled" \
+            invocation-response.json invocation-error.txt; then
+            echo "Runtime did not expose the expected fail-closed response (CLI exit $invoke_exit)." >&2
+            exit 1
+          fi
+          echo "Runtime rejected the model path as configured (CLI exit $invoke_exit)."
+
+      - name: Remove Runtime and artifact bucket
+        if: inputs.operation == 'cleanup'
+        run: bash scripts/cleanup_agentcore_runtime.sh

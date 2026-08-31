@@ -62,7 +62,8 @@ class QuorumAutonomyGate:
 
     def _approval_callback(self, slot: int) -> Any:
         def authorize(event: BeforeToolCallEvent) -> None:
-            decision = self._decision_for_event(event)
+            evaluated_at = self._clock().astimezone(UTC)
+            decision = self._decision_for_event(event, evaluated_at)
             if decision is None:
                 event.cancel_tool = "Quorum policy decision is required"
                 return
@@ -121,6 +122,7 @@ class QuorumAutonomyGate:
                             )
                         ],
                     ),
+                    now=evaluated_at,
                 )
                 if resolution_status is DecisionStatus.REJECTED:
                     event.cancel_tool = "Quorum approval denied"
@@ -130,7 +132,9 @@ class QuorumAutonomyGate:
 
         return authorize
 
-    def _decision_for_event(self, event: BeforeToolCallEvent) -> PolicyDecision | None:
+    def _decision_for_event(
+        self, event: BeforeToolCallEvent, evaluated_at: datetime
+    ) -> PolicyDecision | None:
         tool_input = event.tool_use.get("input", {})
         organization_id = tool_input.get("organization_id")
         action_id = tool_input.get("action_id")
@@ -145,11 +149,9 @@ class QuorumAutonomyGate:
                 and decision.status
                 in {DecisionStatus.AWAITING_APPROVAL, DecisionStatus.DEFERRED_BUDGET}
                 and decision.timeout_at is not None
-                and self._clock().astimezone(UTC) >= decision.timeout_at.astimezone(UTC)
+                and evaluated_at >= decision.timeout_at.astimezone(UTC)
             ):
-                self._resolver.resolve_timeout(
-                    organization_id, action_id, now=self._clock().astimezone(UTC)
-                )
+                self._resolver.resolve_timeout(organization_id, action_id, now=evaluated_at)
                 decision = self._resolver.get_decision(organization_id, action_id)
             return decision
         raw_decision = event.invocation_state.get(POLICY_INVOCATION_STATE_KEY)

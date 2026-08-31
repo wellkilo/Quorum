@@ -344,6 +344,20 @@ The session ID is required, 33–256 characters, starts with an alphanumeric cha
 only alphanumerics, hyphens, or underscores. The invocation and action-request organization IDs must
 match.
 
+Model access is an operator-controlled deployment setting, never a request field. Production starts
+with `QUORUM_BEDROCK_ENABLED=false`. While disabled, a valid request returns HTTP `503` before
+AgentCore Memory, Gateway, or Bedrock is initialized:
+
+```json
+{
+  "error": "Bedrock model calls are disabled; set QUORUM_BEDROCK_ENABLED=true only for a controlled run"
+}
+```
+
+When an operator deliberately enables a bounded run, `QUORUM_BEDROCK_MAX_TOKENS` limits each model
+response to 64–1024 output tokens and defaults to 384. This application guard is not an AWS billing
+hard limit.
+
 ## 11. Human interrupt resume
 
 The Strands interrupt response is sent back to the same logical session.
