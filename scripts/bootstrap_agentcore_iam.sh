@@ -90,7 +90,10 @@ jq -n \
         Sid: "TagNewQuorumRuntimeInTokyo",
         Effect: "Allow",
         Action: "bedrock-agentcore:TagResource",
-        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/*"),
+        Resource: [
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/*"),
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/*")
+        ],
         Condition: {
           StringEquals: {
             "aws:RequestedRegion": $region,
