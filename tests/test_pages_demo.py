@@ -67,7 +67,8 @@ class PagesDemoContractTest(unittest.TestCase):
         self.assertIn("Attention ledger", index)
         self.assertIn("Success is measured by necessary contact, not engagement.", index)
         self.assertIn("window.location.hostname === 'wellkilo.github.io'", app)
-        self.assertIn("AgentCore deployment is not claimed", app)
+        self.assertIn("short-lived AgentCore Runtime deployment is verified separately", app)
+        self.assertIn("this page is not AgentCore-hosted", app)
 
     def test_favicon_is_branded_accessible_svg(self) -> None:
         favicon = (DEMO_DIRECTORY / "favicon.svg").read_text(encoding="utf-8")

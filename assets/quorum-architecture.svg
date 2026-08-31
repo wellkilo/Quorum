@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
   <title id="title">Quorum architecture</title>
-  <desc id="description">Quorum receives Slack events or Runtime invocations, follows a five-node Strands Graph, applies a native hook interrupt before reversible tools, and separates PostgreSQL business facts from Strands sessions, AgentCore Memory, and PII-safe OpenTelemetry. AWS managed resources are implemented as adapters but not yet deployed.</desc>
+  <desc id="description">Quorum receives Slack events or Runtime invocations, follows a five-node Strands Graph, applies a native hook interrupt before reversible tools, and separates PostgreSQL business facts from Strands sessions, AgentCore Memory, and PII-safe OpenTelemetry. AgentCore Runtime has a verified short-lived deployment; Memory and Gateway remain deployment targets.</desc>
   <defs>
     <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
       <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#19303c" stroke-width="1" opacity="0.42"/>
@@ -31,6 +31,7 @@
       .solid-node { fill: #0d1d2b; stroke: #36525e; stroke-width: 1.5; }
       .policy-node { fill: #10271f; stroke: #48d9a7; stroke-width: 1.5; }
       .aws-node { fill: #0d1d2b; stroke: #ffad72; stroke-width: 1.5; stroke-dasharray: 7 5; }
+      .aws-verified-node { fill: #10271f; stroke: #48d9a7; stroke-width: 1.5; }
       .data-node { fill: #10212c; stroke: #36525e; stroke-width: 1.2; }
       .primary-line { fill: none; stroke: #81f1c8; stroke-width: 2; marker-end: url(#arrow); }
       .secondary-line { fill: none; stroke: #78909a; stroke-width: 1.5; marker-end: url(#arrow-muted); }
@@ -48,8 +49,8 @@
 
   <rect x="1184" y="47" width="352" height="76" rx="8" fill="#171f23" stroke="#ffad72" stroke-width="1.5" stroke-dasharray="7 5"/>
   <circle cx="1211" cy="72" r="5" fill="#ffad72"/>
-  <text x="1228" y="77" class="mono" font-size="12" font-weight="700" fill="#ffcfaa">AWS TARGET PATH</text>
-  <text x="1211" y="103" class="mono" font-size="11" fill="#a8b4b4">ADAPTERS BUILT · CLOUD NOT YET DEPLOYED</text>
+  <text x="1228" y="77" class="mono" font-size="12" font-weight="700" fill="#ffcfaa">AWS EVIDENCE BOUNDARY</text>
+  <text x="1211" y="103" class="mono" font-size="11" fill="#a8b4b4">RUNTIME VERIFIED · MEMORY + GATEWAY PENDING</text>
 
   <text x="64" y="203" class="mono section-label">01 · DETERMINISTIC STRANDS GRAPH</text>
   <rect x="48" y="220" width="1504" height="250" rx="12" fill="#091722" stroke="#29404b"/>
@@ -162,10 +163,10 @@
   <text x="720" y="776" class="display small-title">Durable organization memory</text>
   <text x="720" y="799" class="mono small-copy">adapter built · resource pending</text>
 
-  <rect x="982" y="716" width="264" height="106" rx="10" class="aws-node"/>
-  <text x="1004" y="747" class="mono" font-size="10" font-weight="700" fill="#ffcfaa">AGENTCORE RUNTIME</text>
+  <rect x="982" y="716" width="264" height="106" rx="10" class="aws-verified-node"/>
+  <text x="1004" y="747" class="mono" font-size="10" font-weight="700" fill="#81f1c8">AGENTCORE RUNTIME</text>
   <text x="1004" y="776" class="display small-title">Session identity + hosting</text>
-  <text x="1004" y="799" class="mono small-copy">ASGI app built · deploy pending</text>
+  <text x="1004" y="799" class="mono small-copy">short-lived deploy verified · cleaned</text>
 
   <rect x="1266" y="716" width="286" height="106" rx="10" class="aws-node"/>
   <text x="1288" y="747" class="mono" font-size="10" font-weight="700" fill="#ffcfaa">PII-SAFE OPENTELEMETRY</text>
@@ -176,6 +177,6 @@
   <circle cx="64" cy="875" r="5" fill="#81f1c8"/>
   <text x="78" y="879" class="mono" font-size="10" fill="#a8b4b4">SOLID · IMPLEMENTED AND TESTED LOCALLY</text>
   <line x1="371" y1="875" x2="397" y2="875" stroke="#ffad72" stroke-width="1.5" stroke-dasharray="6 4"/>
-  <text x="409" y="879" class="mono" font-size="10" fill="#a8b4b4">DASHED · AWS MANAGED RESOURCE NOT YET DEPLOYED</text>
+  <text x="409" y="879" class="mono" font-size="10" fill="#a8b4b4">DASHED · AWS MANAGED TARGET PENDING</text>
   <text x="1536" y="879" text-anchor="end" class="mono" font-size="10" fill="#81f1c8">PUBLIC EVIDENCE · GITHUB PAGES STATIC SYNTHETIC REPLAY</text>
 </svg>

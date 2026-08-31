@@ -9,8 +9,8 @@
       consent for its exact wording and public use.
 - [ ] Keep every current replay number labeled `synthetic`; do not call it a pilot, study, or user
       result.
-- [ ] If AWS resources remain undeployed, keep the architecture's dashed AWS status visible and do
-      not show simulated console evidence.
+- [ ] Show the successful Runtime workflow evidence, keep Memory and Gateway visibly pending, and do
+      not expose an AWS console or account details.
 
 ## Capture setup
 
@@ -30,6 +30,7 @@
 
 - [ ] Record the public replay page from cold open through the completed receipt trail.
 - [ ] Record the architecture image with a slow left-to-right pan, then the separate state row.
+- [ ] Record the successful GitHub Actions run showing READY, HTTP 503, and automatic cleanup.
 - [ ] Record the README evaluation evidence without exposing local paths or terminal history.
 - [ ] Record the repository root and visible Apache-2.0 license.
 - [ ] Record the actual Builder ID field only after verifying it is safe and correct.

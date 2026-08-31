@@ -5,6 +5,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Hackathon](https://img.shields.io/badge/AWS-Agents%20for%20Humans-ff9900)](https://agentsforhumans.devpost.com/)
 [![Track](https://img.shields.io/badge/Track-Good%20Neighbor%20Agents-2f855a)](https://agentsforhumans.devpost.com/)
+[![AgentCore Runtime evidence](https://github.com/wellkilo/Quorum/actions/workflows/deploy-agentcore.yml/badge.svg)](https://github.com/wellkilo/Quorum/actions/runs/33393010402)
 
 Quorum coordinates the routine decisions that exhaust small communities. It listens where the group already talks, turns commitments into an evidence-linked ledger, acts autonomously only within earned boundaries, and asks the minimum number of people required for a safe decision.
 
@@ -12,9 +13,9 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 ## Status
 
-Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, Slack ingress plus receipts and private questions, transactional SQLite/PostgreSQL persistence, AgentCore Runtime/Memory/Gateway adapters, PII-safe OpenTelemetry spans, signed single-use undo, an anonymous synthetic replay UI, Alembic migrations, and a 50-case synthetic evaluation suite. Live Slack, Google Workspace, and AWS production calls are not yet claimed because credentials are not configured in this development environment.
+Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, Slack ingress plus receipts and private questions, transactional SQLite/PostgreSQL persistence, AgentCore Runtime/Memory/Gateway adapters, PII-safe OpenTelemetry spans, signed single-use undo, an anonymous synthetic replay UI, Alembic migrations, and a 50-case synthetic evaluation suite. A short-lived AgentCore Runtime deployment has been verified through GitHub OIDC; live Slack, Google Workspace, AgentCore Memory, and AgentCore Gateway calls are not yet claimed.
 
-No real organization data, user quote, impact result, AgentCore deployment, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
+No real organization data, user quote, impact result, continuously hosted Runtime, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
 
 ## Public synthetic replay
 
@@ -97,10 +98,10 @@ Quorum does not ask a community to adopt another application. Its complete inter
 Download the [1600x900 PNG](assets/quorum-architecture.png) for slides or video editing, or use the
 [SVG source](assets/quorum-architecture.svg) for lossless publication.
 
-Solid components are implemented and tested locally. AWS-managed boxes are dashed because the
-Runtime, Memory, Gateway, and managed observability resources have not yet been provisioned. The
+Solid components are implemented and tested locally. The AgentCore Runtime node records a verified
+short-lived deployment; dashed AgentCore Memory and Gateway boxes remain undeployed targets. The
 public GitHub Pages site is a separate static synthetic evidence surface, not the Runtime shown in
-the target path.
+the hosted path.
 
 The deterministic target path is a Strands Graph:
 
@@ -158,11 +159,15 @@ Runtime session identifiers, session-state persistence, and long-term memory are
 These stores are complementary. PostgreSQL is not presented as AgentCore Memory, and a Runtime
 session ID is not used as a persistence mechanism.
 
-### AgentCore deployment inputs
+### AgentCore deployment evidence and inputs
 
 The repository contains executable adapters for AgentCore Runtime, Memory, and an IAM-authenticated
-Gateway Lambda target. Provisioning still requires an AWS account, region, IAM roles, a packaged
-Lambda, and external service credentials; no cloud deployment is claimed here.
+Gateway Lambda target. The Runtime-only path was exercised in `ap-northeast-1` on August 31, 2026:
+GitHub OIDC assumed a scoped deployer role, built a Python 3.13 arm64 CodeZip, reached `READY`,
+observed the disabled model path return HTTP `503`, and deleted the Runtime, managed workload
+identity, archive, and temporary bucket. See the
+[deployment evidence record](docs/evidence/agentcore-runtime-2026-08-31.md) and the
+[successful workflow](https://github.com/wellkilo/Quorum/actions/runs/33393010402).
 
 The production model path is disabled by default. Deployment, health checks, and the synthetic demo
 cannot invoke Bedrock until an operator deliberately opens the cost gate for a bounded run:
@@ -195,9 +200,10 @@ after they are exercised against the target AWS account.
 The checked-in `Deploy AgentCore Runtime` GitHub Actions workflow is manual-only and authenticates
 through GitHub OIDC. It deploys a Python 3.13 arm64 CodeZip without ECR or CodeBuild. The execution
 role has an explicit deny for `bedrock:InvokeModel*`, while the runtime environment keeps
-`QUORUM_BEDROCK_ENABLED=false`. The workflow's cleanup operation deletes both the Runtime and its
-temporary private S3 artifact bucket. Runtime verification intentionally invokes the disabled path
-once, expects the documented `503`, and stops that session immediately.
+`QUORUM_BEDROCK_ENABLED=false`. Runtime verification intentionally invokes the disabled path once,
+requires same-session CloudWatch evidence for HTTP `503`, and stops that session immediately. The
+workflow then deletes the Runtime and temporary private S3 artifact bucket whether verification
+succeeds or fails.
 
 This deployment is evidence for AgentCore Runtime hosting only. The public anonymous experience
 remains GitHub Pages; AgentCore's invoke API is IAM-authenticated. PostgreSQL, AgentCore Memory, and
@@ -271,8 +277,8 @@ Do not reuse a published example key for real data. The key must never be commit
 - The real-time channel target is Slack. Discord is not in the initial build.
 - We do not claim real-time WeChat or WhatsApp ingestion. A consented export may be replayed offline after local redaction.
 - The current project has no recruited pilot organization and therefore no real-week impact result yet.
-- No Bedrock model score is published because this development environment has no configured AWS
-  CLI, region, or credentials.
+- No Bedrock model score is published because model calls remain deliberately disabled in both the
+  Runtime environment and IAM policy.
 - The five-node Graph structure, deterministic nodes, and native hook interrupt/resume behavior are
   tested locally. A live Bedrock end-to-end Graph run is not claimed.
 - PostgreSQL DDL is compiled and asserted in tests, while the repository's integration suite runs
@@ -287,9 +293,9 @@ Do not reuse a published example key for real data. The key must never be commit
 - AgentCore Memory provisioning and Strands session-manager wiring are implemented and tested against
   the installed SDK contract; no AWS Memory resource has been created from this machine.
 - OpenTelemetry correlation spans and Strands sensitive-attribute redaction are configured in code.
-  No managed AgentCore trace screenshot is claimed until deployment.
+  Runtime logs verify the same-session HTTP `503`; no managed OTEL trace screenshot is claimed yet.
 - The anonymous GitHub Pages replay is public and visibly labels every result synthetic. It uses a
-  versioned static evidence fixture while AWS account activation blocks an AgentCore deployment.
+  versioned static evidence fixture and is not presented as the IAM-authenticated AgentCore Runtime.
 
 ## Reuse and AI assistance disclosure
 
@@ -315,7 +321,8 @@ This repository was created during the hackathon submission period. As of the in
 - [ ] Bedrock model evaluation result
 - [x] AgentCore Runtime, Memory session manager, Gateway MCP, and safe OTEL integration code
 - [x] Public anonymous synthetic replay demo
-- [ ] Deployed AgentCore resources and managed OTEL trace evidence
+- [x] Short-lived AgentCore Runtime deployment, HTTP 503 cost-gate evidence, and automatic cleanup
+- [ ] Deployed AgentCore Memory, Gateway, and managed OTEL trace evidence
 - [x] Public anonymous replay URL
 - [x] Honest empty-baseline evaluation report
 - [ ] Consented real-organization comparison and quotation

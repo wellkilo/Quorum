@@ -63,11 +63,12 @@ page and the JSON response. The current scenario shows 214 messages, three close
 decisions, and a seven-hour median. Those values demonstrate the interaction and measurement
 contract. They are not measured community impact.
 
-The public replay is available at <https://wellkilo.github.io/Quorum/>. It is intentionally static
-while my AWS account activation blocks a live AgentCore deployment, and the page says so directly.
-The same HTML and JavaScript call the real replay API when hosted by the local AgentCore-compatible
-application. A build-time validator rejects the public artifact if its provenance label, interrupt
-budget, baseline, or disclaimer changes unexpectedly.
+The public replay is available at <https://wellkilo.github.io/Quorum/>. It is intentionally static,
+anonymous, and visibly synthetic. Separately, a GitHub OIDC workflow deployed the reviewed CodeZip
+to AgentCore Runtime, reached READY, verified that the disabled model path returned HTTP 503, and
+deleted the short-lived resources. The same HTML and JavaScript call the real replay API when hosted
+by the AgentCore-compatible application. A build-time validator rejects the public artifact if its
+provenance label, interrupt budget, baseline, or disclaimer changes unexpectedly.
 
 ## Quality engineering is part of the product
 
@@ -93,9 +94,10 @@ the public architecture and video contracts.
 - Apache-2.0 license, reproducible local commands, and explicit known limits
 - Strands Graph, native hook interrupt, AgentCore Runtime/Memory/Gateway adapters, PostgreSQL
   persistence, reversible tools, and PII-safe OpenTelemetry code
-- No claim yet of live AWS resources, real Slack or Google Workspace calls, a Bedrock model score,
-  or real-world impact
+- Verified short-lived AgentCore Runtime hosting with zero model calls and automatic cleanup
+- No claim yet of AgentCore Memory or Gateway deployment, real Slack or Google Workspace calls, a
+  Bedrock model score, or real-world impact
 
-The next evidence milestone is not another feature. It is a consented pilot and a verified cloud
-deployment. Until those exist, Quorum will keep the boundary visible. An agent designed to earn
-trust should be honest about what it has not earned yet.
+The next evidence milestone is not another feature. It is a consented pilot plus Memory and Gateway
+deployment evidence. Until those exist, Quorum will keep the boundary visible. An agent designed to
+earn trust should be honest about what it has not earned yet.

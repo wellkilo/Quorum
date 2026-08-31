@@ -30,6 +30,7 @@ Create the draft early and keep these fields aligned with the public repository:
 - [x] GitHub recognizes the root `LICENSE` as Apache-2.0.
 - [ ] README setup commands work from a clean environment.
 - [ ] Architecture diagram matches the deployed path.
+- [x] Short-lived AgentCore Runtime deployment evidence is public and automatic cleanup is verified.
 - [ ] Video is public, five minutes or shorter, and demonstrates the working project.
 - [x] Public demo works without an invitation, private account, or payment.
 - [ ] Demo remains online through the end of judging.

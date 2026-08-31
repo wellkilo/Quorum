@@ -96,12 +96,13 @@ and provider payloads are not trace attributes.
 
 The Graph, deterministic nodes, native interrupt behavior, PostgreSQL-compatible schema, Runtime
 application, Memory session-manager integration, Gateway schemas and client, reversible provider
-adapters, and safe trace configuration are implemented and tested locally. The AWS-managed resources
-are not yet provisioned because the target account is not fully activated. Real Slack and Google
+adapters, and safe trace configuration are implemented and tested locally. The reviewed Runtime
+CodeZip has also completed a short-lived GitHub OIDC deployment: READY, HTTP 503 at the closed model
+gate, then automatic cleanup. AgentCore Memory and Gateway remain undeployed. Real Slack and Google
 Workspace calls are also not claimed without credentials.
 
-That distinction is encoded in the architecture image: solid components are locally verified;
-dashed AWS boxes are deployment targets. The public demo at
+That distinction is encoded in the architecture image: the Runtime is marked short-lived and
+verified, while dashed Memory and Gateway boxes remain deployment targets. The public demo at
 <https://wellkilo.github.io/Quorum/> is a static, visibly synthetic replay, not a disguised Runtime.
 The source, tests, and diagram are available at <https://github.com/wellkilo/Quorum>.
 

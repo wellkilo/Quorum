@@ -35,7 +35,9 @@ class ArchitectureAssetTest(unittest.TestCase):
             "AGENTCORE MEMORY",
             "AGENTCORE RUNTIME",
             "PII-SAFE OPENTELEMETRY",
-            "AWS MANAGED RESOURCE NOT YET DEPLOYED",
+            "RUNTIME VERIFIED · MEMORY + GATEWAY PENDING",
+            "short-lived deploy verified · cleaned",
+            "AWS MANAGED TARGET PENDING",
             "GITHUB PAGES STATIC SYNTHETIC REPLAY",
         ):
             self.assertIn(label, content)
@@ -54,7 +56,7 @@ class ArchitectureAssetTest(unittest.TestCase):
             readme,
         )
         self.assertIn("[1600x900 PNG](assets/quorum-architecture.png)", readme)
-        self.assertIn("AWS-managed boxes are dashed", readme)
+        self.assertIn("dashed AgentCore Memory and Gateway boxes remain undeployed targets", readme)
 
 
 if __name__ == "__main__":

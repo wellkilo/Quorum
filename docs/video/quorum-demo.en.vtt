@@ -65,8 +65,8 @@ Strands Swarm is used only for bounded semantic ambiguity.
 A native hook interrupt guards every tool call and fails closed.
 
 00:03:08.000 --> 00:03:20.000
-The target uses AgentCore Runtime, Memory, and Gateway. PostgreSQL stores
-business facts. PII-safe traces exclude prompts and tool payloads.
+The CodeZip reached READY in AgentCore Runtime. Its disabled model path
+returned HTTP 503, then the workflow deleted the short-lived deployment.
 
 00:03:20.000 --> 00:03:33.000
 Here is the same synthetic scenario side by side:

@@ -13,7 +13,7 @@ details, Slack tokens, email addresses, or local environment variables.
 | 1:05–1:25 | Replay trace | Follow the first two timeline entries | Source-linked Commitment Ledger |
 | 1:25–1:55 | Receipts | Hold on all three receipts; point to Undo and “draft — not sent” | Reversible tool boundaries |
 | 1:55–2:30 | Quorum result | Frame six appearances and the two-person budget markers | Minimum quorum and Interrupt Budget |
-| 2:30–3:20 | Architecture PNG full-screen | Use `assets/quorum-architecture.png`; reveal left to right | Graph, Swarm-only ambiguity path, hook interrupt, Gateway, separate stores |
+| 2:30–3:20 | Architecture PNG, then successful GitHub Actions run | Reveal Graph left to right, then show the READY → HTTP 503 → cleanup steps | Graph, native hook, verified short-lived Runtime, pending Memory/Gateway |
 | 3:20–3:50 | Side-by-side replay | Return to the completed public page | 214 → 6 appearances; 3 → 6 decisions; 74.4h → 7h |
 | 3:50–4:15 | Evaluation evidence | Show README evaluation table and `data/eval/commitment_gold_v1.jsonl` file count | 50 synthetic gold cases and evidence-grounding rule |
 | 4:15–4:35 | Evidence-boundary title card | Show “No consented pilot quote yet — no quote fabricated” | Honest limitation; replace only after consent |
@@ -26,13 +26,13 @@ details, Slack tokens, email addresses, or local environment variables.
 2. Point to the Swarm dotted branch and say “semantic ambiguity only.”
 3. Stop on the green diamond for the native hook interrupt and its fail-closed behavior.
 4. Move to Gateway and the three reversible tools.
-5. Finish on the separate state row and the dashed not-yet-deployed AWS boundary.
+5. Finish on the separate state row: Runtime is short-lived and verified; Memory and Gateway remain dashed targets.
 
 ## Recording substitutions
 
 - If a consented pilot exists, replace only 4:15–4:35 with the approved quote card.
-- If AgentCore is deployed and verified before recording, replace the dashed-status close-up with a
-  real Runtime invocation and managed trace. Update the diagram legend only in the same verified
-  commit.
-- If either dependency is still unavailable, keep the honest current cut. Do not simulate a cloud
-  console, participant, or production trace.
+- Show the successful workflow run rather than a live AWS console. It contains the real READY, HTTP
+  503 cost-gate, and cleanup evidence without exposing account details.
+- Do not imply that AgentCore Memory or Gateway is deployed, and do not simulate a participant or
+  production trace.
+- Do not simulate a cloud console, managed trace, or deployed resource when real evidence is absent.

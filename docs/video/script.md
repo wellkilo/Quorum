@@ -1,7 +1,7 @@
 # Quorum — 4:50 Demo Narration
 
 Target duration: **4 minutes 50 seconds**. All current metrics are visibly synthetic. This cut does
-not claim a real-world pilot, a consented participant quotation, or a deployed AgentCore backend.
+not claim a real-world pilot, a consented participant quotation, or a continuously hosted backend.
 
 ## 0:00–0:25 — Cold open
 
@@ -43,11 +43,11 @@ and Executor. Risk and routing are deterministic, so model prose cannot change t
 timeout, autonomy, or interruption spend. Strands Swarm is used only for bounded semantic ambiguity.
 Before any tool call, a native hook interrupt re-reads the persisted policy and fails closed.
 
-The AWS target path runs this application in AgentCore Runtime, stores durable organization memory
-in AgentCore Memory, and exposes the three reversible tools through an IAM-authenticated AgentCore
-Gateway. PostgreSQL remains the authority for business facts, while PII-safe OpenTelemetry records
-only allow-listed correlation fields. These adapters are implemented and locally tested; the dashed
-AWS resources are not yet deployed.
+The reviewed CodeZip reached READY in AgentCore Runtime through GitHub OIDC. With model access blocked
+in both configuration and IAM, the hosted invocation returned HTTP 503, and the workflow immediately
+deleted the Runtime and its private artifact bucket. AgentCore Memory and AgentCore Gateway remain
+explicit deployment targets. PostgreSQL stays the authority for business facts, while PII-safe
+OpenTelemetry records only allow-listed correlation fields.
 
 ## 3:20–4:15 — Numbers first, claims bounded
 
