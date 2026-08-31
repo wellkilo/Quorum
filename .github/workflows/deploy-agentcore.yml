@@ -138,15 +138,35 @@ jobs:
             invocation-response.json 2>invocation-error.txt
           invoke_exit=$?
           set -e
-          if ! grep -F "Bedrock model calls are disabled" \
-            invocation-response.json invocation-error.txt; then
-            echo "Runtime did not expose the expected fail-closed response (CLI exit $invoke_exit)." >&2
+          if [[ "$invoke_exit" == "0" ]]; then
+            echo "Runtime unexpectedly accepted the disabled model path." >&2
             exit 1
           fi
-          echo "Runtime rejected the model path as configured (CLI exit $invoke_exit)."
+          log_group="/aws/bedrock-agentcore/runtimes/${RUNTIME_ID}-DEFAULT"
+          observed_503=""
+          for attempt in $(seq 1 12); do
+            log_stream="$(aws logs describe-log-streams \
+              --log-group-name "$log_group" \
+              --query "logStreams[?contains(logStreamName, '$session_id')].logStreamName | [0]" \
+              --output text 2>/dev/null || true)"
+            if [[ -n "$log_stream" && "$log_stream" != "None" ]]; then
+              observed_503="$(aws logs get-log-events \
+                --log-group-name "$log_group" \
+                --log-stream-name "$log_stream" \
+                --query "events[?contains(message, 'Invocation returned HTTP 503')].message | [0]" \
+                --output text 2>/dev/null || true)"
+              [[ -n "$observed_503" && "$observed_503" != "None" ]] && break
+            fi
+            sleep 5
+          done
+          if [[ -z "$observed_503" || "$observed_503" == "None" ]]; then
+            echo "Runtime invocation failed, but its session did not emit the expected HTTP 503 evidence." >&2
+            exit 1
+          fi
+          echo "Runtime rejected the disabled model path with HTTP 503 (CLI exit $invoke_exit)."
 
-      - name: Remove partial deployment after a failed AWS operation
-        if: ${{ failure() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') }}
+      - name: Remove the short-lived deployment after verification
+        if: ${{ always() && inputs.operation == 'deploy' && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') }}
         run: bash scripts/cleanup_agentcore_runtime.sh
 
       - name: Remove Runtime and artifact bucket

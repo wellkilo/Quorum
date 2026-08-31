@@ -289,12 +289,25 @@ updates only `QuorumRuntime` and its AgentCore-managed endpoint and workload ide
 role has no model allow statement and explicitly denies
 `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream`. A cleanup operation removes
 the Runtime, archive, and bucket; AgentCore owns the lifecycle of the Runtime's managed endpoint
-and workload identity. The workflow also attempts cleanup after a failed AWS deployment step. The
+and workload identity. The workflow always attempts cleanup after a deployment run, whether
+verification succeeds or fails, so the Runtime is retained only for the short evidence window. The
 temporary SQLite path under `/tmp` is suitable only for this stateless deployment check and is not
 documented as durable business persistence.
 The one-time IAM bootstrap also creates the AWS-managed Runtime Identity service-linked role when
 the account does not have it; the GitHub deployer role is deliberately not allowed to create IAM
 service-linked roles.
+During `CreateAgentRuntime`, AgentCore authorizes its managed `CreateWorkloadIdentity` dependency
+against both `workload-identity-directory/default` and the placeholder resource
+`workload-identity-directory/default/workload-identity/*` before the generated identity name is
+available. The deployer therefore allows that create action only for those two resources in the
+current account and region. Read and delete permissions remain limited to identities prefixed with
+`QuorumRuntime-`; delete also includes the default directory resource required by the managed
+lifecycle API. Tagging the Runtime, default identity directory, or generated identity requires the
+exact `Project`, `DataClassification`, and `CostMode` keys and values.
+Because the AWS CLI does not create its output file when the hosted application returns HTTP 503,
+the deployment check requires both a non-zero invocation exit and an HTTP 503 Runtime log for the
+same opaque verification session. The local HTTP contract test separately asserts the exact
+`Bedrock model calls are disabled` response body.
 The archive places `agentcore_main.py` at its root as `main.py`, matching the direct-code Runtime
 contract, while the application implementation remains in `quorum.runtime`.
 

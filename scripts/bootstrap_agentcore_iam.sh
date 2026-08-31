@@ -73,13 +73,26 @@ jq -n \
         Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
       {
-        Sid: "ManageRuntimeWorkloadIdentityInTokyo",
+        Sid: "CreateManagedRuntimeWorkloadIdentityInTokyo",
         Effect: "Allow",
-        Action: [
-          "bedrock-agentcore:CreateWorkloadIdentity",
-          "bedrock-agentcore:GetWorkloadIdentity",
-          "bedrock-agentcore:DeleteWorkloadIdentity"
+        Action: "bedrock-agentcore:CreateWorkloadIdentity",
+        Resource: [
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default"),
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/*")
         ],
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+      },
+      {
+        Sid: "ReadNamedQuorumWorkloadIdentityInTokyo",
+        Effect: "Allow",
+        Action: "bedrock-agentcore:GetWorkloadIdentity",
+        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/" + $runtime_name + "-*"),
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+      },
+      {
+        Sid: "DeleteManagedRuntimeWorkloadIdentityInTokyo",
+        Effect: "Allow",
+        Action: "bedrock-agentcore:DeleteWorkloadIdentity",
         Resource: [
           ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default"),
           ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/" + $runtime_name + "-*")
@@ -92,6 +105,7 @@ jq -n \
         Action: "bedrock-agentcore:TagResource",
         Resource: [
           ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/*"),
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default"),
           ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/*")
         ],
         Condition: {
