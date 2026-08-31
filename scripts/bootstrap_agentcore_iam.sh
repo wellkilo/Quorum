@@ -61,14 +61,26 @@ jq -n \
         }}
       },
       {
+        Sid: "CreateDefaultRuntimeEndpointInTokyo",
+        Effect: "Allow",
+        Action: "bedrock-agentcore:CreateAgentRuntimeEndpoint",
+        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/*"),
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+      },
+      {
         Sid: "ManageOnlyQuorumRuntime",
         Effect: "Allow",
         Action: [
           "bedrock-agentcore:GetAgentRuntime",
           "bedrock-agentcore:UpdateAgentRuntime",
-          "bedrock-agentcore:DeleteAgentRuntime"
+          "bedrock-agentcore:DeleteAgentRuntime",
+          "bedrock-agentcore:GetAgentRuntimeEndpoint",
+          "bedrock-agentcore:UpdateAgentRuntimeEndpoint",
+          "bedrock-agentcore:DeleteAgentRuntimeEndpoint",
+          "bedrock-agentcore:ListAgentRuntimeEndpoints"
         ],
-        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/" + $runtime_name + "-*")
+        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":runtime/" + $runtime_name + "-*"),
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
       {
         Sid: "InvokeQuorumRuntimeForVerification",

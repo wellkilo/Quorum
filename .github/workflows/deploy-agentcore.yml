@@ -83,6 +83,7 @@ jobs:
             --output dist/quorum-agentcore-runtime.zip
 
       - name: Deploy or update zero-model Runtime
+        id: deploy
         if: inputs.operation == 'deploy'
         env:
           QUORUM_AGENTCORE_ARTIFACT: dist/quorum-agentcore-runtime.zip
@@ -143,6 +144,10 @@ jobs:
             exit 1
           fi
           echo "Runtime rejected the model path as configured (CLI exit $invoke_exit)."
+
+      - name: Remove partial deployment after a failed AWS operation
+        if: ${{ failure() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') }}
+        run: bash scripts/cleanup_agentcore_runtime.sh
 
       - name: Remove Runtime and artifact bucket
         if: inputs.operation == 'cleanup'

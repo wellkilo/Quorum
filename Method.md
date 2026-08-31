@@ -287,8 +287,9 @@ The manual GitHub Actions deployment uses OIDC-scoped short-lived AWS credential
 Python 3.13 Linux arm64 CodeZip, stores it in a private one-day-lifecycle S3 bucket, and creates or
 updates only `QuorumRuntime`. The Runtime role has no model allow statement and explicitly denies
 `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream`. A cleanup operation removes
-the Runtime, archive, and bucket. The temporary SQLite path under `/tmp` is suitable only for this
-stateless deployment check and is not documented as durable business persistence.
+the Runtime, its default Runtime endpoint, archive, and bucket; the workflow also attempts cleanup
+after a failed AWS deployment step. The temporary SQLite path under `/tmp` is suitable only for
+this stateless deployment check and is not documented as durable business persistence.
 The archive places `agentcore_main.py` at its root as `main.py`, matching the direct-code Runtime
 contract, while the application implementation remains in `quorum.runtime`.
 
