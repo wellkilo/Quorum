@@ -472,6 +472,14 @@ cost gate passes. The complementary `quorum-slack-ingress-smoke` sends correctly
 v0 HMAC requests to the HTTP route and requires `200`, `401`, and cost-gated `503` responses before
 any downstream call.
 
+`quorum-slack-live-evidence` composes the Socket Mode bridge and the synthetic three-surface sender
+without importing the production Graph. It fails closed if either model or execution gate is true,
+accepts only an exact marker from the configured test channel, disconnects Socket Mode after that
+event, and then performs the four Web API calls required for three visible messages. The returned
+report distinguishes the real Socket Mode transport from the fixed marker's `synthetic` data
+classification and omits all Slack identifiers, content, tokens, and provider timestamps. Provider
+acknowledgments do not prove rendering; manual inspection remains required.
+
 The outbound adapter implements these Slack Web API methods:
 
 - `chat.postMessage` for the one-line group receipt;

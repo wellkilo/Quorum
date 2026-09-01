@@ -45,6 +45,7 @@ quorum-provision-gateway = "quorum.gateway:main"
 quorum-runtime = "quorum.runtime:main"
 quorum-slack-smoke = "quorum.slack_smoke:main"
 quorum-slack-ingress-smoke = "quorum.slack_ingress_smoke:main"
+quorum-slack-live-evidence = "quorum.slack_live_evidence:main"
 quorum-slack-socket = "quorum.slack_socket:main"
 
 [tool.hatch.build.targets.wheel]

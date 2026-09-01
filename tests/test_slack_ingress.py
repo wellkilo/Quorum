@@ -84,6 +84,26 @@ class SlackEventConverterTest(unittest.TestCase):
         self.assertIsNone(self.converter.to_canonical(bot))
         self.assertIsNone(self.converter.to_canonical({"type": "app_rate_limited"}))
 
+    def test_fixed_synthetic_marker_can_preserve_its_content_classification(self) -> None:
+        payload = {
+            "type": "event_callback",
+            "team_id": "T12345",
+            "event": {
+                "type": "message",
+                "channel": "C12345",
+                "user": "U12345",
+                "ts": "1770000000.000100",
+                "text": "Synthetic transport check: Quorum live evidence.",
+            },
+        }
+
+        event = self.converter.to_canonical(
+            payload, data_classification=DataClassification.SYNTHETIC
+        )
+
+        self.assertIsNotNone(event)
+        self.assertIs(event.data_classification, DataClassification.SYNTHETIC)
+
     def test_malformed_message_timestamp_is_a_controlled_ingress_error(self) -> None:
         payload = {
             "type": "event_callback",

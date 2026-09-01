@@ -37,6 +37,7 @@ The objective is to produce judge-visible evidence quickly while preserving the 
 - [x] Keep session state and business-ledger persistence separate and executable.
 - [x] Display the primary counter: interruptions used versus budget.
 - [x] Add focused unit and integration tests for the Slack transport slice.
+- [x] Add a fail-closed, PII-safe live-evidence command for the remaining credentialed check.
 
 ## Hour 48–72: make the product claim visible
 

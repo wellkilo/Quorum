@@ -48,6 +48,15 @@
 
 ## Publication and final evidence
 
+- [ ] In the dedicated test workspace, record the live-evidence preview without showing environment
+  variables, tokens, channel IDs, user IDs, or shell history.
+- [ ] Start the confirmed live-evidence command, type only its fixed synthetic marker in Slack, and
+  capture the terminal's PII-safe `provider_responses_validated` report.
+- [ ] Show the one-line group receipt, the one private question, and the one-screen weekly summary;
+  keep all workspace and participant names outside the crop.
+- [ ] State that the clip proves Slack transport and synthetic surface delivery, not a real pilot or
+  measured impact result.
+
 - [ ] Upload to YouTube or Vimeo with public or unlisted access, never private access.
 - [ ] Verify playback in a signed-out browser and confirm the platform duration is at most 5:00.
 - [ ] Enable English captions and inspect the first 30 seconds manually.

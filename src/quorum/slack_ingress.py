@@ -73,6 +73,13 @@ class SlackEventConverter:
             raise SlackIngressError("Slack payload must be an object")
         return payload
 
+    def canonical_channel_id(self, channel_id: str) -> str:
+        """Pseudonymize a configured channel for canonical-boundary comparisons."""
+
+        if not channel_id:
+            raise ValueError("Slack channel ID is required")
+        return self._opaque("channel", channel_id)
+
     def challenge(self, payload: dict[str, Any]) -> str | None:
         challenge = payload.get("challenge")
         return (
@@ -81,7 +88,12 @@ class SlackEventConverter:
             else None
         )
 
-    def to_canonical(self, payload: dict[str, Any]) -> CanonicalMessageEvent | None:
+    def to_canonical(
+        self,
+        payload: dict[str, Any],
+        *,
+        data_classification: DataClassification = DataClassification.REDACTED_REAL,
+    ) -> CanonicalMessageEvent | None:
         if payload.get("type") != "event_callback":
             return None
         event = payload.get("event")
@@ -100,15 +112,16 @@ class SlackEventConverter:
         except (OSError, OverflowError, ValueError) as exc:
             raise SlackIngressError("invalid Slack message timestamp") from exc
         text = self._redact_text(_required_string(event, "text"))
-        source_ref = f"slack:{self._opaque('channel', channel_id)}:{message_ts}"
+        canonical_channel_id = self.canonical_channel_id(channel_id)
+        source_ref = f"slack:{canonical_channel_id}:{message_ts}"
         return CanonicalMessageEvent(
             organization_id=self._opaque("organization", team_id),
-            channel_id=self._opaque("channel", channel_id),
+            channel_id=canonical_channel_id,
             message_id=self._opaque("message", f"{channel_id}:{message_ts}"),
             actor_id=self._opaque("person", user_id),
             occurred_at=occurred_at,
             text=text,
-            data_classification=DataClassification.REDACTED_REAL,
+            data_classification=data_classification,
             source=MessageSource(
                 provider="slack",
                 workspace_id=self._opaque("workspace", team_id),

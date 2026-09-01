@@ -84,6 +84,62 @@ The commands have deliberately different authority:
 - `quorum-slack-socket serve` runs the production ledger processor and refuses to start unless the
   Bedrock cost gate is explicitly open.
 
+### 1.2 Slack live-evidence report
+
+`quorum-slack-live-evidence` is the credentialed test-workspace acceptance command. Preview is the
+default and performs no network call. Live execution requires `--confirm-live-posts`, requires
+`QUORUM_BEDROCK_ENABLED` and `QUORUM_EXECUTION_ENABLED` to remain false, and waits for this exact
+synthetic marker in `QUORUM_SLACK_DEMO_CHANNEL_ID`:
+
+```text
+Synthetic transport check: Quorum live evidence.
+```
+
+The marker envelope is acknowledged before conversion. Its canonical event is explicitly
+`synthetic`, while `transport=slack_socket_mode` independently records that it traversed the real
+provider transport. The three posted product surfaces use the same versioned `synthetic` replay
+fixture. A matching marker from another channel cannot trigger posts.
+After one matching event, the command sends exactly three visible messages and validates four Web API
+responses: group `chat.postMessage`, `conversations.open`, private `chat.postMessage`, and weekly
+`chat.postMessage`. No model, Memory, business database, Gateway, Google Workspace, or execution tool
+is constructed or called.
+
+Representative successful report:
+
+```json
+{
+  "schema_version": "1.0",
+  "status": "provider_responses_validated",
+  "evidence_scope": "dedicated_test_workspace_synthetic",
+  "transport": "slack_socket_mode",
+  "envelope_ack_sent": true,
+  "canonical_events_observed": 1,
+  "canonical_event_classification": "synthetic",
+  "fixture_data_classification": "synthetic",
+  "messages_sent": 3,
+  "surface_types": ["group_receipt", "private_question", "weekly_summary"],
+  "web_api_responses_validated": 4,
+  "visual_inspection_required": true,
+  "model_calls": 0,
+  "memory_events": 0,
+  "database_writes": 0,
+  "gateway_tool_calls": 0,
+  "google_workspace_calls": 0,
+  "execution_tool_calls": 0,
+  "external_side_effect_calls": 4
+}
+```
+
+The actual report also contains `completed_at` and the public synthetic `dataset_id`. It never
+contains tokens, raw or pseudonymized workspace/channel/user/message IDs, message bodies, envelope
+IDs, or Slack timestamps. `envelope_ack_sent=true` means the SDK's Socket Mode response method
+returned; it does not claim a second acknowledgment from Slack.
+`status=provider_responses_validated` proves successful Web API response contracts only; the operator
+must visually inspect the three messages before claiming the product surfaces were rendered.
+The four provider calls are not atomic. A sanitized delivery error can occur after an earlier message
+was accepted, so the operator must inspect Slack before retrying; Quorum does not automatically
+repeat the evidence run.
+
 ## 2. Canonical message event
 
 This is an internal typed boundary, not a public HTTP endpoint.

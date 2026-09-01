@@ -61,7 +61,34 @@ counters at zero.
 This proves transport and redaction, not a model-backed ledger result. Do not publish the synthetic
 test sentence as a real participant quotation.
 
-## 5. Post the three synthetic product surfaces
+## 5. Run the combined evidence pass
+
+Preview the exact marker and side-effect count first:
+
+```bash
+uv run quorum-slack-live-evidence
+```
+
+Keep both cost gates false and start the confirmed command:
+
+```bash
+export QUORUM_BEDROCK_ENABLED=false
+export QUORUM_EXECUTION_ENABLED=false
+uv run quorum-slack-live-evidence \
+  --confirm-live-posts \
+  --timeout-seconds 120 \
+  --output reports/slack-live-evidence.json
+```
+
+Then post the exact marker printed by preview in `QUORUM_SLACK_DEMO_CHANNEL_ID`. A marker from any
+other channel is acknowledged but cannot trigger outbound posts. After the matching event, the
+command disconnects Socket Mode and sends the three synthetic product surfaces. It refuses to
+overwrite an existing report. The report excludes Slack IDs, message text, tokens, envelope IDs, and
+provider timestamps. Inspect it before publishing and visually verify all three Slack messages.
+If Slack rejects a call after an earlier message was accepted, inspect the channel and DM before
+retrying; the command never claims atomic delivery and does not automatically retry external writes.
+
+## 6. Post the three synthetic product surfaces separately
 
 After inspecting the preview, provide the dedicated test channel and your own test-user ID:
 
@@ -76,7 +103,7 @@ The confirmation flag performs exactly three visible Slack writes: one synthetic
 synthetic private question, and one synthetic weekly summary. It makes zero Bedrock calls and zero
 Gateway or Google Workspace tool calls. Use only the dedicated test workspace.
 
-## 6. Optional HTTP adapter check
+## 7. Optional HTTP adapter check
 
 The ASGI application also implements Slack's signed HTTP Events API contract for deployments that
 provide a public HTTPS webhook. The currently verified AgentCore Runtime invocation endpoint requires
@@ -102,5 +129,6 @@ and external side-effect calls.
 ## Evidence boundary
 
 Do not claim a live Slack result until the `probe` command has received a real test-workspace event.
-Do not claim a live three-surface delivery until `--confirm-live-posts` has succeeded and the three
-messages have been visually inspected. Neither result is a real-world impact study.
+For the combined path, retain the generated report and a PII-safe screenshot showing the three
+surfaces. Do not claim a live three-surface delivery until `--confirm-live-posts` has succeeded and
+the messages have been visually inspected. Neither result is a real-world impact study.

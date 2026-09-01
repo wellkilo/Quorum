@@ -109,10 +109,12 @@ class SlackSocketModeBridge:
         converter: SlackEventConverter,
         processor: SlackEventProcessor,
         result_sink: Callable[[SlackSocketDispatch], None] | None = None,
+        data_classification: DataClassification = DataClassification.REDACTED_REAL,
     ) -> None:
         self._converter = converter
         self._processor = processor
         self._result_sink = result_sink
+        self._data_classification = data_classification
 
     def __call__(self, client: SocketResponseSender, request: SocketModeRequest) -> None:
         result = self.dispatch(client, request)
@@ -126,7 +128,9 @@ class SlackSocketModeBridge:
         if request.type != "events_api":
             return SlackSocketDispatch(status="ignored")
         try:
-            event = self._converter.to_canonical(request.payload)
+            event = self._converter.to_canonical(
+                request.payload, data_classification=self._data_classification
+            )
         except SlackIngressError:
             return SlackSocketDispatch(status="invalid", error_code="invalid_event")
         if event is None:
@@ -168,14 +172,14 @@ def _required_secret(name: str) -> str:
     return value
 
 
-def _client() -> SocketModeClient:
+def build_slack_socket_client() -> SocketModeClient:
     return SocketModeClient(
         app_token=_required_secret("QUORUM_SLACK_APP_TOKEN"),
         web_client=WebClient(token=_required_secret("QUORUM_SLACK_BOT_TOKEN")),
     )
 
 
-def _converter() -> SlackEventConverter:
+def build_slack_event_converter() -> SlackEventConverter:
     return SlackEventConverter(_required_secret("QUORUM_SLACK_PSEUDONYM_KEY").encode())
 
 
@@ -218,9 +222,11 @@ def _probe_command(timeout_seconds: float) -> int:
                 )
             )
 
-    client = _client()
+    client = build_slack_socket_client()
     client.socket_mode_request_listeners.append(
-        SlackSocketModeBridge(converter=_converter(), processor=observe, result_sink=capture)
+        SlackSocketModeBridge(
+            converter=build_slack_event_converter(), processor=observe, result_sink=capture
+        )
     )
     client.connect()
     try:
@@ -246,9 +252,11 @@ def _serve_command() -> int:
     def report(dispatch: SlackSocketDispatch) -> None:
         print(dispatch.model_dump_json(exclude_none=True), flush=True)
 
-    client = _client()
+    client = build_slack_socket_client()
     client.socket_mode_request_listeners.append(
-        SlackSocketModeBridge(converter=_converter(), processor=processor, result_sink=report)
+        SlackSocketModeBridge(
+            converter=build_slack_event_converter(), processor=processor, result_sink=report
+        )
     )
     client.connect()
     try:

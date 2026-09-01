@@ -100,6 +100,23 @@ processing remains fail-closed until `QUORUM_BEDROCK_ENABLED=true` is deliberate
 AgentCore Runtime endpoint requires AWS authentication and is not presented as a direct public Slack
 webhook.
 
+The final test-workspace evidence pass combines that transport check with the three synthetic
+surfaces while requiring both cost gates to stay closed:
+
+```bash
+uv run quorum-slack-live-evidence
+uv run quorum-slack-live-evidence \
+  --confirm-live-posts \
+  --output reports/slack-live-evidence.json
+```
+
+After the confirmed command starts, post the exact marker printed by the preview in the configured
+test channel. The report records one acknowledged, PII-safe canonical event, three visible messages,
+one sent Socket Mode envelope ACK, four validated Slack Web API responses, and zero model, Memory,
+database, Gateway, Google Workspace, or execution-tool calls. It contains no token, Slack ID,
+message body, or provider timestamp. Visual inspection of the three messages remains a separate
+required step.
+
 The anonymous replay requires no credentials and is deliberately synthetic. Start the exact
 AgentCore-compatible ASGI application locally, then open `http://127.0.0.1:8080`:
 
@@ -350,8 +367,9 @@ Do not reuse a published example key for real data. The key must never be commit
   but tests replace only the network boundary. The synthetic three-surface Slack smoke path is
   executable and fail-closed; no live external API result is claimed yet.
 - The reviewed Slack Socket Mode manifest, bridge, zero-model probe, and signed HTTP ingress smoke are
-  implemented and locally tested. A credentialed Slack workspace event and the three visible live
-  test-workspace posts are still outstanding.
+  implemented and locally tested. A single-command, PII-safe live-evidence harness is also tested,
+  but a credentialed Slack workspace event and the three visible live test-workspace posts are still
+  outstanding.
 - The undo transport is implemented and locally tested: `GET` renders a confirmation page and only
   `POST` consumes the token. Its public HTTPS deployment is not yet claimed.
 - The three tools have typed AgentCore Gateway schemas, an IAM MCP client, and a Lambda dispatch
@@ -388,6 +406,7 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Idempotent execution receipts, append-only audit, and signed single-use 24-hour undo
 - [x] Slack one-line group receipt, one-question direct message, and one-screen weekly summary
 - [x] Minimal-permission Slack Socket Mode manifest, redacting bridge, and HTTP ingress smoke
+- [x] Fail-closed Slack live-evidence harness with PII-safe report contract
 - [x] 50-case synthetic gold set and executable metric pipeline
 - [ ] Bedrock model evaluation result
 - [x] AgentCore Runtime, Memory session manager, Gateway MCP, and safe OTEL integration code

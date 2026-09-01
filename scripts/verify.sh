@@ -6,6 +6,7 @@ uv run ruff format --check src migrations tests scripts
 uv run ruff check src migrations tests scripts
 uv run mypy src/quorum
 uv run quorum-slack-socket validate >/dev/null
+uv run quorum-slack-live-evidence >/dev/null
 uv run python -m unittest discover -s tests -v
 uv run quorum-validate-gold
 uv run python scripts/build_empty_baseline.py
