@@ -4,8 +4,9 @@ Status: phase-four executable contract based on `strands-agents==1.53.0`,
 `pydantic==2.12.5`, `SQLAlchemy==2.0.52`, `Alembic==1.19.1`,
 `google-api-python-client==2.199.0`, `google-auth==2.57.0`, `slack-sdk==3.43.0`, and psycopg 3 for
 PostgreSQL, plus `bedrock-agentcore==1.22.0` and `mcp-proxy-for-aws==1.6.4`. AgentCore adapters and
-local HTTP surfaces are executable and tested; cloud provisioning and credentialed calls remain
-unverified until AWS credentials and deployment resources are available.
+local HTTP surfaces are executable and tested. Short-lived AgentCore Runtime, Memory, Gateway, and
+managed-trace lifecycles have separate evidence records; credentialed Slack and Google Workspace
+calls, Bedrock model quality, and a continuously hosted backend remain unverified.
 
 ## Strands Graph
 
@@ -443,6 +444,34 @@ production trace, a model-backed workflow, or any external side effect.
 
 ## Slack Web API methods
 
+Quorum supports two ingress transports that terminate at the same typed boundary. The HTTP Events
+API route verifies Slack's signature at a public HTTPS adapter. Socket Mode uses
+`slack_sdk.socket_mode.SocketModeClient` to establish an outbound WebSocket connection, so a
+dedicated test workspace can exercise a real Slack transport event without exposing another public
+service. The IAM- or OAuth-protected AgentCore Runtime invocation endpoint cannot be used directly as
+Slack's anonymous Request URL and is not presented as one.
+
+The versioned Socket Mode manifest requests exactly these bot scopes:
+
+- `channels:history` to receive `message.channels` events from public channels the bot can access;
+- `chat:write` for the group receipt and weekly summary;
+- `im:write` to open the one-person private question.
+
+The separate app-level token has only `connections:write`; this is not a bot OAuth scope. The bridge
+sends `SocketModeResponse(envelope_id=...)` before conversion or processing. It acknowledges ignored
+and malformed envelopes without forwarding them. Accepted `events_api` payloads pass through the
+same `SlackEventConverter` as HTTP ingress, so only a typed, pseudonymized, PII-redacted
+`CanonicalMessageEvent` can reach Listener. Processor failures expose only a stable
+`processor_error` code.
+
+`quorum-slack-socket` separates authority across three commands: `validate` reads the reviewed
+manifest with zero network calls; `probe` receives and redacts one event without constructing a
+model, Memory client, database engine, or Gateway client and without making an outbound Slack Web
+API call; and `serve` constructs the production ledger processor only after the explicit Bedrock
+cost gate passes. The complementary `quorum-slack-ingress-smoke` sends correctly signed and forged
+v0 HMAC requests to the HTTP route and requires `200`, `401`, and cost-gated `503` responses before
+any downstream call.
+
 The outbound adapter implements these Slack Web API methods:
 
 - `chat.postMessage` for the one-line group receipt;
@@ -450,12 +479,13 @@ The outbound adapter implements these Slack Web API methods:
 - one `chat.postMessage` with compact Block Kit fields for the weekly summary;
 - Block Kit URL buttons for Open and Undo.
 
-The required outbound bot scopes are `chat:write` and `im:write`. Slack Events ingress verifies the
-exact raw body with Slack's v0 HMAC scheme and a five-minute replay window, rejects malformed event
-timestamps, ignores bots and subtypes, pseudonymizes workspace/channel/user/message IDs, and redacts
-mentions, email addresses, phone numbers, and IPv4 addresses before Graph invocation. The ASGI route
-returns the 200 acknowledgement before background Graph processing. `quorum-slack-smoke` reuses the
-versioned synthetic-week fixture and posts exactly one receipt, one private question, and one weekly
-summary only when `--confirm-live-posts` is present. Synthetic receipt links are previews and do not
-invoke Google providers or Gateway tools. The weekly type rejects totals that cannot fit within the
-two-interrupt-per-person budget. A live credentialed workspace test is still outstanding.
+The required outbound bot scopes are `chat:write` and `im:write`. Slack HTTP Events ingress verifies
+the exact raw body with Slack's v0 HMAC scheme and a five-minute replay window, rejects malformed
+event timestamps, ignores bots and subtypes, pseudonymizes workspace/channel/user/message IDs, and
+redacts mentions, email addresses, phone numbers, and IPv4 addresses before Graph invocation. The
+ASGI route returns the 200 acknowledgement before background Graph processing.
+`quorum-slack-smoke` reuses the versioned synthetic-week fixture and posts exactly one receipt, one
+private question, and one weekly summary only when `--confirm-live-posts` is present. Synthetic
+receipt links are previews and do not invoke Google providers or Gateway tools. The weekly type
+rejects totals that cannot fit within the two-interrupt-per-person budget.
+A live credentialed workspace test is still outstanding.

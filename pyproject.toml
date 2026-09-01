@@ -44,9 +44,12 @@ quorum-provision-memory = "quorum.memory:main"
 quorum-provision-gateway = "quorum.gateway:main"
 quorum-runtime = "quorum.runtime:main"
 quorum-slack-smoke = "quorum.slack_smoke:main"
+quorum-slack-ingress-smoke = "quorum.slack_ingress_smoke:main"
+quorum-slack-socket = "quorum.slack_socket:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quorum"]
+artifacts = ["src/quorum/slack-app-manifest.json"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "alembic.ini" = "quorum/alembic.ini"

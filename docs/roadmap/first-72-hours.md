@@ -28,22 +28,24 @@ The objective is to produce judge-visible evidence quickly while preserving the 
 ## Hour 24–48: prove one vertical slice
 
 - [ ] Create a Slack test workspace and app.
+- [x] Version and offline-validate the minimal-permission Socket Mode app manifest.
 - [ ] Receive and verify one real Slack Events API callback.
-- [ ] Normalize it into the canonical event contract.
-- [ ] Run Listener -> Ledger Curator in a Strands Graph.
-- [ ] Reject a commitment that lacks `source_message_ref`.
-- [ ] Persist the accepted commitment through a session manager.
-- [ ] Display the primary counter: interruptions used versus budget.
-- [ ] Add focused unit and integration tests for the slice.
+- [x] Implement and test the shared PII-safe canonical event conversion boundary.
+- [x] Exercise the signed HTTP ingress locally with valid, forged, and cost-gated requests.
+- [x] Run Listener -> Ledger Curator in a Strands Graph contract test.
+- [x] Reject a commitment that lacks `source_message_ref`.
+- [x] Keep session state and business-ledger persistence separate and executable.
+- [x] Display the primary counter: interruptions used versus budget.
+- [x] Add focused unit and integration tests for the Slack transport slice.
 
 ## Hour 48–72: make the product claim visible
 
-- [ ] Add deterministic risk classification for reversibility, impact radius, and money.
-- [ ] Add a `BeforeToolCallEvent` autonomy hook.
-- [ ] Demonstrate one native Strands interrupt and resume.
-- [ ] Post exactly one group receipt with a working undo action.
-- [ ] Ask exactly one private question with a timeout and explicit default.
-- [ ] Generate one weekly one-screen summary from synthetic data.
+- [x] Add deterministic risk classification for reversibility, impact radius, and money.
+- [x] Add a `BeforeToolCallEvent` autonomy hook.
+- [x] Demonstrate native Strands interrupt and resume in executable local tests.
+- [x] Implement and test one group receipt with a working undo action.
+- [x] Implement and test one private question with a timeout and explicit default.
+- [x] Generate one weekly one-screen summary from synthetic data.
 - [x] Capture one managed synthetic OTEL span without raw message content or downstream calls.
 - [ ] Record a 30-second evidence clip for the eventual demo.
 - [ ] Review and publish the first Builder Center post.

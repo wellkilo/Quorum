@@ -52,6 +52,38 @@ Success response:
 }
 ```
 
+The HTTP adapter is suitable only behind a public HTTPS deployment that accepts Slack's network
+connection and validates the Slack signature itself. The verified AgentCore Runtime invocation
+endpoint requires IAM or OAuth authentication and is not claimed as a direct Slack Request URL.
+
+`quorum-slack-ingress-smoke` sends three real HTTP requests to this endpoint: a correctly signed URL
+verification body, the same body with a forged signature, and a correctly signed message event while
+the model gate is closed. The required statuses are `200`, `401`, and `503`, respectively. The last
+request must stop before model, Memory, database, Gateway, Slack-outbound, or Google calls.
+
+## 1.1 Slack Socket Mode ingress
+
+`quorum-slack-socket` uses `slack_sdk.socket_mode.SocketModeClient` with the versioned
+`src/quorum/slack-app-manifest.json` contract. The app-level token has `connections:write`; it is not
+a bot OAuth scope. The bot scopes are exactly `channels:history`, `chat:write`, and `im:write`, and the
+only subscribed event is `message.channels`.
+
+For every Socket Mode `events_api` envelope, Quorum first sends
+`SocketModeResponse(envelope_id=<received envelope ID>)`. It then passes the inner Slack
+`event_callback` payload through the same `SlackEventConverter` used by the HTTP route. Only a typed,
+pseudonymized `CanonicalMessageEvent` can reach the processor. Ignored and malformed envelopes are
+acknowledged but never processed. Processor failures emit only `processor_error`; raw text and tokens
+are not logged.
+
+The commands have deliberately different authority:
+
+- `quorum-slack-socket validate` reads and validates the manifest without credentials or network calls.
+- `quorum-slack-socket probe` receives one event and reports opaque transport/redaction evidence; it
+  constructs no model, Memory client, database engine, or Gateway client and makes no outbound Slack
+  Web API call.
+- `quorum-slack-socket serve` runs the production ledger processor and refuses to start unless the
+  Bedrock cost gate is explicitly open.
+
 ## 2. Canonical message event
 
 This is an internal typed boundary, not a public HTTP endpoint.

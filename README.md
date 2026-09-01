@@ -61,6 +61,7 @@ and undo URLs require a secret of at least 32 bytes. Keep all three outside sour
 ```bash
 export QUORUM_UNDO_SIGNING_SECRET='<at-least-32-random-bytes>'
 export QUORUM_PUBLIC_BASE_URL='https://your-public-origin.example'
+export QUORUM_SLACK_APP_TOKEN='<injected-xapp-secret>'
 export QUORUM_SLACK_BOT_TOKEN='<injected-secret>'
 export QUORUM_SLACK_SIGNING_SECRET='<injected-secret>'
 export QUORUM_SLACK_PSEUDONYM_KEY='<separate-injected-secret>'
@@ -83,6 +84,21 @@ uv run quorum-slack-smoke --confirm-live-posts
 The receipt, direct question, and weekly summary are visibly labeled synthetic. The command makes
 zero Bedrock calls and zero Google or AgentCore Gateway tool calls. It prints message timestamps but
 never the token or message content.
+
+For a real Slack test workspace without a public webhook, import the reviewed
+[Socket Mode app manifest](src/quorum/slack-app-manifest.json), follow the
+[Slack setup runbook](docs/slack/setup.md), and validate its exact permissions without credentials:
+
+```bash
+uv run quorum-slack-socket validate
+```
+
+With an app-level `connections:write` token, bot token, and a separate pseudonym key injected locally,
+`uv run quorum-slack-socket probe` acknowledges and redacts one real test-workspace event without
+constructing a model, Memory client, database engine, Gateway client, or external action. Production
+processing remains fail-closed until `QUORUM_BEDROCK_ENABLED=true` is deliberately set. The verified
+AgentCore Runtime endpoint requires AWS authentication and is not presented as a direct public Slack
+webhook.
 
 The anonymous replay requires no credentials and is deliberately synthetic. Start the exact
 AgentCore-compatible ASGI application locally, then open `http://127.0.0.1:8080`:
@@ -333,6 +349,9 @@ Do not reuse a published example key for real data. The key must never be commit
 - Google Calendar, Gmail Draft, Google Forms, and Slack adapters use their real SDK method contracts,
   but tests replace only the network boundary. The synthetic three-surface Slack smoke path is
   executable and fail-closed; no live external API result is claimed yet.
+- The reviewed Slack Socket Mode manifest, bridge, zero-model probe, and signed HTTP ingress smoke are
+  implemented and locally tested. A credentialed Slack workspace event and the three visible live
+  test-workspace posts are still outstanding.
 - The undo transport is implemented and locally tested: `GET` renders a confirmation page and only
   `POST` consumes the token. Its public HTTPS deployment is not yet claimed.
 - The three tools have typed AgentCore Gateway schemas, an IAM MCP client, and a Lambda dispatch
@@ -368,6 +387,7 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Reversible Google Calendar, Gmail Draft, and Google Forms SDK adapters
 - [x] Idempotent execution receipts, append-only audit, and signed single-use 24-hour undo
 - [x] Slack one-line group receipt, one-question direct message, and one-screen weekly summary
+- [x] Minimal-permission Slack Socket Mode manifest, redacting bridge, and HTTP ingress smoke
 - [x] 50-case synthetic gold set and executable metric pipeline
 - [ ] Bedrock model evaluation result
 - [x] AgentCore Runtime, Memory session manager, Gateway MCP, and safe OTEL integration code
