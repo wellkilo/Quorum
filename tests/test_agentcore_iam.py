@@ -177,7 +177,7 @@ fi
             observability_statements = {
                 statement["Sid"]: statement for statement in observability_policy["Statement"]
             }
-            self.assertEqual(len(observability_statements), 3)
+            self.assertEqual(len(observability_statements), 4)
             transaction_search = observability_statements[
                 "ManageTemporaryTransactionSearchForQuorum"
             ]
@@ -199,6 +199,12 @@ fi
             self.assertEqual(
                 span_group["Resource"],
                 "arn:aws:logs:ap-northeast-1:123456789012:log-group:aws/spans",
+            )
+            span_stream = observability_statements["CreateOnlyDefaultSharedSpanStream"]
+            self.assertEqual(span_stream["Action"], "logs:CreateLogStream")
+            self.assertEqual(
+                span_stream["Resource"],
+                "arn:aws:logs:ap-northeast-1:123456789012:log-group:aws/spans:log-stream:default",
             )
 
             runtime_policy = json.loads(captured_runtime_policy.read_text(encoding="utf-8"))

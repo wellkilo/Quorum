@@ -407,6 +407,13 @@ jq -n \
       ],
       Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:aws/spans"),
       Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+    },
+    {
+      Sid: "CreateOnlyDefaultSharedSpanStream",
+      Effect: "Allow",
+      Action: "logs:CreateLogStream",
+      Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:aws/spans:log-stream:default"),
+      Condition: {StringEquals: {"aws:RequestedRegion": $region}}
     }
   ]
 }' >"${work_dir}/observability-policy.json"
