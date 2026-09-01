@@ -241,11 +241,10 @@ fi
                 observability_statements["ReadApplicationSignalsRoleDeletionStatus"]["Action"],
                 "iam:GetServiceLinkedRoleDeletionStatus",
             )
-            channel = observability_statements["ManageOnlyApplicationSignalsServiceLinkedChannel"]
-            self.assertEqual(
-                set(channel["Action"]),
-                {"cloudtrail:CreateServiceLinkedChannel", "cloudtrail:DeleteChannel"},
-            )
+            channel = observability_statements[
+                "PermitApplicationSignalsServiceLinkedChannelCreation"
+            ]
+            self.assertEqual(channel["Action"], "cloudtrail:CreateServiceLinkedChannel")
             self.assertEqual(
                 channel["Resource"],
                 "arn:aws:cloudtrail:ap-northeast-1:123456789012:"
@@ -280,6 +279,7 @@ fi
     def test_deployment_requires_remote_503_evidence_and_always_cleans_up(self) -> None:
         workflow = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
 
+        self.assertIn("timeout-minutes: 60", workflow)
         self.assertIn("Invocation returned HTTP 503", workflow)
         self.assertIn("manage_agentcore_observability.py prepare", workflow)
         self.assertIn("manage_agentcore_observability.py verify", workflow)

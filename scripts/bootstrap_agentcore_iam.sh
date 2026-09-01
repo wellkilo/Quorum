@@ -448,12 +448,9 @@ jq -n \
       Resource: "*"
     },
     {
-      Sid: "ManageOnlyApplicationSignalsServiceLinkedChannel",
+      Sid: "PermitApplicationSignalsServiceLinkedChannelCreation",
       Effect: "Allow",
-      Action: [
-        "cloudtrail:CreateServiceLinkedChannel",
-        "cloudtrail:DeleteChannel"
-      ],
+      Action: "cloudtrail:CreateServiceLinkedChannel",
       Resource: ("arn:aws:cloudtrail:" + $region + ":" + $account + ":channel/aws-service-channel/application-signals/*"),
       Condition: {StringEquals: {"aws:RequestedRegion": $region}}
     },

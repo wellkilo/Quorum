@@ -407,6 +407,16 @@ must find that span in the Runtime's `spans` stream, match its trace and span ID
 prove the sentinel is absent, and report zero model, Memory event, Gateway tool, Slack, and Google
 Workspace calls.
 
+The deployment workflow allows up to 15 minutes for each account-level X-Ray destination transition;
+AWS reports `PENDING` and rejects a second destination update until the first transition is `ACTIVE`.
+Before enabling `CloudWatchLogs`, the workflow ensures that
+`AWSServiceRoleForCloudWatchApplicationSignals` exists and records whether it created the role. On
+rollback, it restores the prior X-Ray destination and indexing percentage, removes the named resource
+policy and newly created managed log groups, then deletes that role only if the workflow created it.
+The Application Signals CloudTrail service-linked channel is an AWS-owned account prerequisite:
+customer `DeleteChannel` calls are not permitted, so the workflow reports but does not claim to
+delete it. No Quorum business data or raw message content is sent to that channel.
+
 ## 11. AgentCore Memory verification contract
 
 The manual `Verify AgentCore Memory and Gateway` workflow creates a uniquely named, short-lived

@@ -55,6 +55,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
         xray = MagicMock()
         xray.get_trace_segment_destination.side_effect = [
             {"Destination": "XRay", "Status": "ACTIVE"},
+            {"Destination": "XRay", "Status": "ACTIVE"},
             {"Destination": "CloudWatchLogs", "Status": "ACTIVE"},
         ]
         xray.get_indexing_rules.return_value = {
@@ -88,6 +89,8 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                 region="ap-northeast-1",
                 policy_name="QuorumTransactionSearchVerification-123-1",
                 state_file=state_file,
+                transition_timeout_seconds=1,
+                poll_seconds=0,
             )
             with patch("scripts.manage_agentcore_observability.boto3.Session") as session_factory:
                 session_factory.return_value.client.side_effect = (logs, xray, iam, cloudtrail)
@@ -102,7 +105,11 @@ class AgentCoreObservabilityTest(unittest.TestCase):
             {"aws/spans": False, "/aws/application-signals/data": False},
         )
         self.assertFalse(state["application_signals_role_preexisting"])
+        self.assertTrue(state["application_signals_role_created"])
         self.assertEqual(state["application_signals_channel_arns_preexisting"], [])
+        iam.create_service_linked_role.assert_called_once_with(
+            AWSServiceName="application-signals.cloudwatch.amazonaws.com"
+        )
         logs.put_resource_policy.assert_called_once()
         xray.update_trace_segment_destination.assert_called_once_with(Destination="CloudWatchLogs")
         xray.update_indexing_rule.assert_called_once_with(
@@ -151,15 +158,12 @@ class AgentCoreObservabilityTest(unittest.TestCase):
             "channel/aws-service-channel/application-signals/default"
         )
         cloudtrail = MagicMock()
-        cloudtrail.list_channels.side_effect = [
-            {
-                "Channels": [
-                    {"ChannelArn": resource_explorer_channel},
-                    {"ChannelArn": application_signals_channel},
-                ]
-            },
-            {"Channels": [{"ChannelArn": resource_explorer_channel}]},
-        ]
+        cloudtrail.list_channels.return_value = {
+            "Channels": [
+                {"ChannelArn": resource_explorer_channel},
+                {"ChannelArn": application_signals_channel},
+            ]
+        }
         with tempfile.TemporaryDirectory() as temporary_directory:
             state_file = Path(temporary_directory) / "state.json"
             state_file.write_text(
@@ -174,6 +178,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                             "/aws/application-signals/data": False,
                         },
                         "application_signals_role_preexisting": False,
+                        "application_signals_role_created": True,
                         "application_signals_channel_arns_preexisting": [],
                         "region": "ap-northeast-1",
                     }
@@ -182,7 +187,13 @@ class AgentCoreObservabilityTest(unittest.TestCase):
             )
             with patch("scripts.manage_agentcore_observability.boto3.Session") as session_factory:
                 session_factory.return_value.client.side_effect = (logs, xray, iam, cloudtrail)
-                restore(argparse.Namespace(state_file=state_file))
+                restore(
+                    argparse.Namespace(
+                        state_file=state_file,
+                        transition_timeout_seconds=1,
+                        poll_seconds=0,
+                    )
+                )
 
         logs.delete_resource_policy.assert_called_once_with(
             policyName="QuorumTransactionSearchVerification-123-1"
@@ -196,7 +207,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                 unittest.mock.call(logGroupName="/aws/application-signals/data"),
             ],
         )
-        cloudtrail.delete_channel.assert_called_once_with(Channel=application_signals_channel)
+        cloudtrail.delete_channel.assert_not_called()
         iam.delete_service_linked_role.assert_called_once_with(
             RoleName="AWSServiceRoleForCloudWatchApplicationSignals"
         )
@@ -226,10 +237,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
             "channel/aws-service-channel/application-signals/preexisting"
         )
         cloudtrail = MagicMock()
-        cloudtrail.list_channels.side_effect = [
-            {"Channels": [{"ChannelArn": channel}]},
-            {"Channels": [{"ChannelArn": channel}]},
-        ]
+        cloudtrail.list_channels.return_value = {"Channels": [{"ChannelArn": channel}]}
         with tempfile.TemporaryDirectory() as temporary_directory:
             state_file = Path(temporary_directory) / "state.json"
             state_file.write_text(
@@ -244,6 +252,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                             "/aws/application-signals/data": True,
                         },
                         "application_signals_role_preexisting": True,
+                        "application_signals_role_created": False,
                         "application_signals_channel_arns_preexisting": [channel],
                         "region": "ap-northeast-1",
                     }
@@ -252,12 +261,71 @@ class AgentCoreObservabilityTest(unittest.TestCase):
             )
             with patch("scripts.manage_agentcore_observability.boto3.Session") as session_factory:
                 session_factory.return_value.client.side_effect = (logs, xray, iam, cloudtrail)
-                restore(argparse.Namespace(state_file=state_file))
+                restore(
+                    argparse.Namespace(
+                        state_file=state_file,
+                        transition_timeout_seconds=1,
+                        poll_seconds=0,
+                    )
+                )
 
         logs.delete_log_group.assert_not_called()
         cloudtrail.delete_channel.assert_not_called()
         iam.get_role.assert_not_called()
         iam.delete_service_linked_role.assert_not_called()
+
+    def test_restore_waits_for_pending_destination_before_switching_back(self) -> None:
+        logs = MagicMock()
+        logs.describe_resource_policies.return_value = {"resourcePolicies": []}
+        xray = MagicMock()
+        xray.get_trace_segment_destination.side_effect = [
+            {"Destination": "CloudWatchLogs", "Status": "PENDING"},
+            {"Destination": "CloudWatchLogs", "Status": "ACTIVE"},
+            {"Destination": "XRay", "Status": "ACTIVE"},
+        ]
+        xray.get_indexing_rules.return_value = {
+            "IndexingRules": [
+                {
+                    "Name": "Default",
+                    "Rule": {"Probabilistic": {"DesiredSamplingPercentage": 0.0}},
+                }
+            ]
+        }
+        iam = MagicMock()
+        cloudtrail = MagicMock()
+        cloudtrail.list_channels.return_value = {"Channels": []}
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            state_file = Path(temporary_directory) / "state.json"
+            state_file.write_text(
+                json.dumps(
+                    {
+                        "policy_name": "QuorumTransactionSearchVerification-123-1",
+                        "policy_created": False,
+                        "previous_destination": "XRay",
+                        "previous_indexing_percentage": 0.0,
+                        "managed_log_groups_preexisting": {
+                            "aws/spans": True,
+                            "/aws/application-signals/data": True,
+                        },
+                        "application_signals_role_preexisting": True,
+                        "application_signals_role_created": False,
+                        "application_signals_channel_arns_preexisting": [],
+                        "region": "ap-northeast-1",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch("scripts.manage_agentcore_observability.boto3.Session") as session_factory:
+                session_factory.return_value.client.side_effect = (logs, xray, iam, cloudtrail)
+                restore(
+                    argparse.Namespace(
+                        state_file=state_file,
+                        transition_timeout_seconds=1,
+                        poll_seconds=0,
+                    )
+                )
+
+        xray.update_trace_segment_destination.assert_called_once_with(Destination="XRay")
 
     def test_restore_continues_independent_cleanup_after_log_group_failure(self) -> None:
         logs = MagicMock()
@@ -291,10 +359,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
             "channel/aws-service-channel/application-signals/default"
         )
         cloudtrail = MagicMock()
-        cloudtrail.list_channels.side_effect = [
-            {"Channels": [{"ChannelArn": channel}]},
-            {"Channels": []},
-        ]
+        cloudtrail.list_channels.return_value = {"Channels": [{"ChannelArn": channel}]}
         with tempfile.TemporaryDirectory() as temporary_directory:
             state_file = Path(temporary_directory) / "state.json"
             state_file.write_text(
@@ -309,6 +374,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                             "/aws/application-signals/data": False,
                         },
                         "application_signals_role_preexisting": False,
+                        "application_signals_role_created": True,
                         "application_signals_channel_arns_preexisting": [],
                         "region": "ap-northeast-1",
                     }
@@ -318,9 +384,15 @@ class AgentCoreObservabilityTest(unittest.TestCase):
             with patch("scripts.manage_agentcore_observability.boto3.Session") as session_factory:
                 session_factory.return_value.client.side_effect = (logs, xray, iam, cloudtrail)
                 with self.assertRaisesRegex(RuntimeError, "managed log group cleanup failed"):
-                    restore(argparse.Namespace(state_file=state_file))
+                    restore(
+                        argparse.Namespace(
+                            state_file=state_file,
+                            transition_timeout_seconds=1,
+                            poll_seconds=0,
+                        )
+                    )
 
-        cloudtrail.delete_channel.assert_called_once_with(Channel=channel)
+        cloudtrail.delete_channel.assert_not_called()
         iam.delete_service_linked_role.assert_called_once_with(
             RoleName="AWSServiceRoleForCloudWatchApplicationSignals"
         )

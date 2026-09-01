@@ -17,7 +17,10 @@ from botocore.exceptions import ClientError
 POLICY_PREFIX = "QuorumTransactionSearchVerification-"
 MANAGED_LOG_GROUPS = ("aws/spans", "/aws/application-signals/data")
 APPLICATION_SIGNALS_ROLE = "AWSServiceRoleForCloudWatchApplicationSignals"
+APPLICATION_SIGNALS_SERVICE_NAME = "application-signals.cloudwatch.amazonaws.com"
 APPLICATION_SIGNALS_CHANNEL_FRAGMENT = "channel/aws-service-channel/application-signals/"
+DEFAULT_TRANSITION_TIMEOUT_SECONDS = 900
+DEFAULT_POLL_SECONDS = 5
 PROBE_SPAN_NAME = "quorum.observability.probe"
 PRIVACY_SENTINEL = "synthetic-payload-must-not-appear-in-telemetry"
 ALLOWED_QUORUM_ATTRIBUTES = {
@@ -97,6 +100,21 @@ def _application_signals_channel_arns(cloudtrail: Any) -> set[str]:
             return matches
 
 
+def _wait_for_destination(
+    xray: Any, expected_destination: str, timeout_seconds: int, poll_seconds: int
+) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        current = xray.get_trace_segment_destination()
+        if current.get("Destination") == expected_destination and current.get("Status") == "ACTIVE":
+            return
+        time.sleep(poll_seconds)
+    raise RuntimeError(
+        f"trace destination {expected_destination} did not become active "
+        f"within {timeout_seconds} seconds"
+    )
+
+
 def prepare(args: argparse.Namespace) -> None:
     if not re.fullmatch(r"QuorumTransactionSearchVerification-[A-Za-z0-9-]+", args.policy_name):
         raise ValueError("policy name must be unique and use the Quorum verification prefix")
@@ -122,12 +140,17 @@ def prepare(args: argparse.Namespace) -> None:
             name: _log_group_exists(logs, name) for name in MANAGED_LOG_GROUPS
         },
         "application_signals_role_preexisting": _role_exists(iam, APPLICATION_SIGNALS_ROLE),
+        "application_signals_role_created": False,
         "application_signals_channel_arns_preexisting": sorted(
             _application_signals_channel_arns(cloudtrail)
         ),
         "region": args.region,
     }
     _write_state(args.state_file, state)
+    if not state["application_signals_role_preexisting"]:
+        iam.create_service_linked_role(AWSServiceName=APPLICATION_SIGNALS_SERVICE_NAME)
+        state["application_signals_role_created"] = True
+        _write_state(args.state_file, state)
 
     logs.put_resource_policy(
         policyName=args.policy_name,
@@ -135,20 +158,19 @@ def prepare(args: argparse.Namespace) -> None:
     )
     state["policy_created"] = True
     _write_state(args.state_file, state)
-    xray.update_trace_segment_destination(Destination="CloudWatchLogs")
+    if destination != "CloudWatchLogs":
+        _wait_for_destination(xray, destination, args.transition_timeout_seconds, args.poll_seconds)
+        xray.update_trace_segment_destination(Destination="CloudWatchLogs")
     xray.update_indexing_rule(
         Name="Default", Rule={"Probabilistic": {"DesiredSamplingPercentage": 0.0}}
     )
 
-    for _attempt in range(30):
-        current = xray.get_trace_segment_destination()
-        if current.get("Destination") == "CloudWatchLogs" and current.get("Status") == "ACTIVE":
-            print("transaction_search_destination=CloudWatchLogs")
-            print("transaction_search_indexing_percentage=0.0")
-            print(f"transaction_search_policy={args.policy_name}")
-            return
-        time.sleep(2)
-    raise RuntimeError("Transaction Search destination did not become active")
+    _wait_for_destination(
+        xray, "CloudWatchLogs", args.transition_timeout_seconds, args.poll_seconds
+    )
+    print("transaction_search_destination=CloudWatchLogs")
+    print("transaction_search_indexing_percentage=0.0")
+    print(f"transaction_search_policy={args.policy_name}")
 
 
 def restore(args: argparse.Namespace) -> None:
@@ -186,12 +208,23 @@ def restore(args: argparse.Namespace) -> None:
             )
     except Exception as exc:  # cleanup must continue across independent resources
         errors.append(f"indexing restore failed: {type(exc).__name__}")
+    destination_restored = False
     try:
-        if (
-            current_destination is not None
-            and current_destination.get("Destination") != state["previous_destination"]
-        ):
-            xray.update_trace_segment_destination(Destination=state["previous_destination"])
+        if current_destination is not None:
+            current_name = current_destination.get("Destination")
+            if current_destination.get("Status") != "ACTIVE":
+                _wait_for_destination(
+                    xray, current_name, args.transition_timeout_seconds, args.poll_seconds
+                )
+            if current_name != state["previous_destination"]:
+                xray.update_trace_segment_destination(Destination=state["previous_destination"])
+            _wait_for_destination(
+                xray,
+                state["previous_destination"],
+                args.transition_timeout_seconds,
+                args.poll_seconds,
+            )
+            destination_restored = True
     except Exception as exc:  # cleanup must continue across independent resources
         errors.append(f"destination restore failed: {type(exc).__name__}")
     if state.get("policy_created"):
@@ -200,16 +233,6 @@ def restore(args: argparse.Namespace) -> None:
         except Exception as exc:  # cleanup must report, not hide, incomplete rollback
             errors.append(f"policy deletion failed: {type(exc).__name__}")
     try:
-        for _attempt in range(30):
-            restored_destination = xray.get_trace_segment_destination()
-            if (
-                restored_destination.get("Destination") == state["previous_destination"]
-                and restored_destination.get("Status") == "ACTIVE"
-            ):
-                break
-            time.sleep(2)
-        else:
-            errors.append("trace destination restoration did not become active")
         current_rules = xray.get_indexing_rules().get("IndexingRules", [])
         current_default = next(item for item in current_rules if item.get("Name") == "Default")
         restored_percentage = current_default["Rule"]["Probabilistic"]["DesiredSamplingPercentage"]
@@ -227,8 +250,10 @@ def restore(args: argparse.Namespace) -> None:
         errors.append(f"policy deletion verification failed: {type(exc).__name__}")
     preexisting = state.get("managed_log_groups_preexisting", {})
     removed_log_groups = 0
-    for group_name in MANAGED_LOG_GROUPS:
-        if isinstance(preexisting, Mapping) and not preexisting.get(group_name, True):
+    if destination_restored:
+        for group_name in MANAGED_LOG_GROUPS:
+            if not isinstance(preexisting, Mapping) or preexisting.get(group_name, True):
+                continue
             try:
                 if _log_group_exists(logs, group_name):
                     logs.delete_log_group(logGroupName=group_name)
@@ -243,21 +268,12 @@ def restore(args: argparse.Namespace) -> None:
     new_channels: set[str] = set()
     try:
         new_channels = _application_signals_channel_arns(cloudtrail) - previous_channels
-        for channel_arn in new_channels:
-            cloudtrail.delete_channel(Channel=channel_arn)
-        for _attempt in range(30):
-            if not (_application_signals_channel_arns(cloudtrail) - previous_channels):
-                break
-            time.sleep(2)
-        else:
-            errors.append("temporary Application Signals channel still exists after cleanup")
-    except Exception as exc:  # cleanup must continue to the service-linked role
-        errors.append(f"Application Signals channel cleanup failed: {type(exc).__name__}")
+    except Exception as exc:  # channel inspection must not block role cleanup
+        errors.append(f"Application Signals channel inspection failed: {type(exc).__name__}")
     role_removed = False
     try:
-        if not state.get("application_signals_role_preexisting", True) and _role_exists(
-            iam, APPLICATION_SIGNALS_ROLE
-        ):
+        role_created = state.get("application_signals_role_created", False)
+        if destination_restored and role_created and _role_exists(iam, APPLICATION_SIGNALS_ROLE):
             task = iam.delete_service_linked_role(RoleName=APPLICATION_SIGNALS_ROLE)
             task_id = task["DeletionTaskId"]
             for _attempt in range(30):
@@ -275,9 +291,7 @@ def restore(args: argparse.Namespace) -> None:
                 time.sleep(2)
             else:
                 errors.append("Application Signals service-linked role cleanup timed out")
-        if not state.get("application_signals_role_preexisting", True) and _role_exists(
-            iam, APPLICATION_SIGNALS_ROLE
-        ):
+        if destination_restored and role_created and _role_exists(iam, APPLICATION_SIGNALS_ROLE):
             errors.append("temporary Application Signals role still exists after cleanup")
     except Exception as exc:
         errors.append(f"Application Signals role cleanup failed: {type(exc).__name__}")
@@ -287,7 +301,7 @@ def restore(args: argparse.Namespace) -> None:
     print(f"transaction_search_indexing_restored={state['previous_indexing_percentage']}")
     print("transaction_search_policy_removed=true")
     print(f"temporary_managed_log_groups_removed={removed_log_groups}")
-    print(f"temporary_application_signals_channels_removed={len(new_channels)}")
+    print(f"service_managed_application_signals_channels_retained={len(new_channels)}")
     print(f"temporary_application_signals_role_removed={str(role_removed).lower()}")
 
 
@@ -389,10 +403,18 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--region", required=True)
     prepare_parser.add_argument("--policy-name", required=True)
     prepare_parser.add_argument("--state-file", type=Path, required=True)
+    prepare_parser.add_argument(
+        "--transition-timeout-seconds", type=int, default=DEFAULT_TRANSITION_TIMEOUT_SECONDS
+    )
+    prepare_parser.add_argument("--poll-seconds", type=int, default=DEFAULT_POLL_SECONDS)
     prepare_parser.set_defaults(handler=prepare)
 
     restore_parser = subparsers.add_parser("restore")
     restore_parser.add_argument("--state-file", type=Path, required=True)
+    restore_parser.add_argument(
+        "--transition-timeout-seconds", type=int, default=DEFAULT_TRANSITION_TIMEOUT_SECONDS
+    )
+    restore_parser.add_argument("--poll-seconds", type=int, default=DEFAULT_POLL_SECONDS)
     restore_parser.set_defaults(handler=restore)
 
     verify_parser = subparsers.add_parser("verify")
