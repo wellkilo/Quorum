@@ -202,7 +202,13 @@ class AgentCoreResourceLifecycleTest(unittest.TestCase):
         self.assertIn("creates zero events", api)
         self.assertIn("runs zero `tools/call` requests", api)
         self.assertIn("QUORUM_EXECUTION_ENABLED=false", method)
-        self.assertIn("no successful cloud run is claimed", readme)
+        self.assertIn(
+            "https://github.com/wellkilo/Quorum/actions/runs/33469765620",
+            readme,
+        )
+        self.assertIn("created zero Memory events", readme)
+        self.assertIn("zero Gateway `tools/call` requests", readme)
+        self.assertIn("continuously hosted AgentCore backend are not claimed", readme)
 
 
 if __name__ == "__main__":

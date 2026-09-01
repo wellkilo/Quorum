@@ -23,8 +23,9 @@ Suggested cover image for posts 2 and 3: `assets/quorum-architecture.png`. Alt t
 - [ ] Confirm the title still contains the exact phrase `Agents for Humans`.
 - [ ] Paste as rich text and inspect headings, lists, code blocks, and links in preview.
 - [ ] Keep the GitHub Pages replay labeled synthetic and do not imply that it is AgentCore-hosted.
-- [ ] Keep the no-pilot, no-user-quote, no-Bedrock-score, and no-Memory/Gateway-deployment
-      limitations that apply to that post; describe Runtime only as short-lived and verified.
+- [ ] Keep the no-pilot, no-user-quote, no-Bedrock-score, no-Gateway-tool-execution, and
+      no-managed-trace limitations that apply to that post; describe every AgentCore lifecycle as
+      short-lived, verified, and cleaned.
 - [ ] Verify the repository and demo links in a signed-out browser.
 - [ ] Publish under the entrant's actual Builder ID profile.
 - [ ] Copy the final public URL into the table below and into Devpost.

@@ -43,11 +43,12 @@ and Executor. Risk and routing are deterministic, so model prose cannot change t
 timeout, autonomy, or interruption spend. Strands Swarm is used only for bounded semantic ambiguity.
 Before any tool call, a native hook interrupt re-reads the persisted policy and fails closed.
 
-The reviewed CodeZip reached READY in AgentCore Runtime through GitHub OIDC. With model access blocked
-in both configuration and IAM, the hosted invocation returned HTTP 503, and the workflow immediately
-deleted the Runtime and its private artifact bucket. AgentCore Memory and AgentCore Gateway remain
-explicit deployment targets. PostgreSQL stays the authority for business facts, while PII-safe
-OpenTelemetry records only allow-listed correlation fields.
+Two short-lived GitHub OIDC runs verified the AWS boundaries with both gates closed. AgentCore
+Runtime reached READY and returned HTTP 503 at the cost gate. AgentCore Memory reached ACTIVE with
+the fact and summary strategies. AgentCore Gateway reached READY and listed exactly three IAM MCP
+tools. The runs created zero Memory events, made zero Gateway tool calls, and cleaned every temporary
+resource. PostgreSQL stays the authority for business facts; PII-safe OpenTelemetry records only
+allow-listed correlation fields.
 
 ## 3:20–4:15 — Numbers first, claims bounded
 

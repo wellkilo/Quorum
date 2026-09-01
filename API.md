@@ -400,6 +400,11 @@ strategy names, creates zero events, and deletes the resource before the job end
 This proves the managed Memory resource and namespace contract only. It does not claim a model-backed
 memory extraction result, because the cost-safe verification writes zero events.
 
+The contract was exercised in `ap-northeast-1` on September 1, 2026. The public run reported
+`memory_status=ACTIVE`, both configured strategy names, `events_created=0`, and complete cleanup. See
+the [evidence record](docs/evidence/agentcore-services-2026-09-01.md) and
+[GitHub Actions run](https://github.com/wellkilo/Quorum/actions/runs/33469765620).
+
 ## 12. AgentCore Gateway verification contract
 
 The same workflow creates an IAM-authenticated MCP Gateway and a Lambda target. The target contains
@@ -431,6 +436,10 @@ The verifier waits for the Gateway and target to reach `READY`, uses a SigV4-aut
 to run initialization and `tools/list`, and requires exactly the three names above. It deliberately
 runs zero `tools/call` requests. The Lambda also defaults `QUORUM_EXECUTION_ENABLED=false`; an
 attempted invocation fails before database, Slack, or Google clients are initialized.
+
+The September 1 public run reported `lambda_gate=execution-disabled`,
+`gateway_status=READY`, `authentication=AWS_IAM`, the exact three tool names, `tool_calls=0`, and
+complete cleanup. This is control-plane and tool-discovery evidence, not execution evidence.
 
 ## 13. Human interrupt resume
 

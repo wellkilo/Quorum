@@ -35,9 +35,12 @@ class ArchitectureAssetTest(unittest.TestCase):
             "AGENTCORE MEMORY",
             "AGENTCORE RUNTIME",
             "PII-SAFE OPENTELEMETRY",
-            "RUNTIME VERIFIED · MEMORY + GATEWAY PENDING",
+            "RUNTIME · MEMORY · GATEWAY VERIFIED + CLEANED",
+            "READY · tools/list · cleaned",
+            "ACTIVE · 2 strategies · cleaned",
             "short-lived deploy verified · cleaned",
-            "AWS MANAGED TARGET PENDING",
+            "SHORT-LIVED AWS VERIFIED + CLEANED",
+            "MANAGED TRACE UNEVIDENCED",
             "GITHUB PAGES STATIC SYNTHETIC REPLAY",
         ):
             self.assertIn(label, content)
@@ -56,7 +59,11 @@ class ArchitectureAssetTest(unittest.TestCase):
             readme,
         )
         self.assertIn("[1600x900 PNG](assets/quorum-architecture.png)", readme)
-        self.assertIn("dashed AgentCore Memory and Gateway boxes remain undeployed targets", readme)
+        self.assertIn(
+            "Runtime, Memory, and Gateway\n"
+            "nodes record separate verified short-lived AWS lifecycles followed by cleanup",
+            readme,
+        )
 
 
 if __name__ == "__main__":

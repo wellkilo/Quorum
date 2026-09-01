@@ -388,6 +388,13 @@ Memory, Lambda, Lambda log group, artifact, and bucket. The OIDC role can manage
 AgentCore resources, the two named service roles, the prefixed Lambda, and the exact artifact path.
 Both the Lambda execution role and Runtime role explicitly deny Bedrock model invocation.
 
+This lifecycle was exercised successfully in `ap-northeast-1` on September 1, 2026. The public run
+reported an execution-disabled Lambda, `ACTIVE` Memory with `QuorumFacts` and `QuorumSummaries`, a
+`READY` IAM-authenticated Gateway with exactly the three expected MCP tools, zero Memory events, zero
+Gateway tool calls, and complete cleanup. The independent cleanup step also completed idempotently.
+See the [evidence record](docs/evidence/agentcore-services-2026-09-01.md) and
+[workflow run](https://github.com/wellkilo/Quorum/actions/runs/33469765620).
+
 ## OpenTelemetry
 
 AgentCore Observability uses managed ADOT/OpenTelemetry. `safe_trace_attributes()` enforces a closed

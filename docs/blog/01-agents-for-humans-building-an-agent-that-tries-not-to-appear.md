@@ -70,6 +70,12 @@ deleted the short-lived resources. The same HTML and JavaScript call the real re
 by the AgentCore-compatible application. A build-time validator rejects the public artifact if its
 provenance label, interrupt budget, baseline, or disclaimer changes unexpectedly.
 
+A second short-lived GitHub OIDC run verified the other two managed boundaries without opening a
+model or side-effect path. AgentCore Memory reached `ACTIVE` with the intended fact and summary
+strategies, and an IAM-authenticated AgentCore Gateway reached `READY` and returned exactly the
+three typed tools through MCP `tools/list`. The run created zero Memory events, made zero Gateway
+tool calls, and deleted every temporary resource.
+
 ## Quality engineering is part of the product
 
 The repository includes a 50-case synthetic gold set for commitment extraction. It covers creates,
@@ -95,9 +101,11 @@ the public architecture and video contracts.
 - Strands Graph, native hook interrupt, AgentCore Runtime/Memory/Gateway adapters, PostgreSQL
   persistence, reversible tools, and PII-safe OpenTelemetry code
 - Verified short-lived AgentCore Runtime hosting with zero model calls and automatic cleanup
-- No claim yet of AgentCore Memory or Gateway deployment, real Slack or Google Workspace calls, a
-  Bedrock model score, or real-world impact
+- Verified short-lived AgentCore Memory and Gateway lifecycles with zero events, zero tool calls,
+  and automatic cleanup
+- No claim yet of model-backed Memory extraction, Gateway execution, real Slack or Google Workspace
+  calls, a Bedrock model score, or real-world impact
 
-The next evidence milestone is not another feature. It is a consented pilot plus Memory and Gateway
-deployment evidence. Until those exist, Quorum will keep the boundary visible. An agent designed to
-earn trust should be honest about what it has not earned yet.
+The next evidence milestone is not another feature. It is a consented pilot and controlled
+end-to-end execution evidence. Until those exist, Quorum will keep the boundary visible. An agent
+designed to earn trust should be honest about what it has not earned yet.

@@ -98,13 +98,15 @@ The Graph, deterministic nodes, native interrupt behavior, PostgreSQL-compatible
 application, Memory session-manager integration, Gateway schemas and client, reversible provider
 adapters, and safe trace configuration are implemented and tested locally. The reviewed Runtime
 CodeZip has also completed a short-lived GitHub OIDC deployment: READY, HTTP 503 at the closed model
-gate, then automatic cleanup. AgentCore Memory and Gateway remain undeployed. Real Slack and Google
-Workspace calls are also not claimed without credentials.
+gate, then automatic cleanup. A separate zero-model run brought Memory to `ACTIVE` with both
+configured strategies and an IAM-authenticated Gateway to `READY`, verified the exact MCP tool list,
+and then cleaned every resource. It created zero Memory events and made zero Gateway tool calls. Real
+Slack and Google Workspace calls are not claimed without credentials.
 
-That distinction is encoded in the architecture image: the Runtime is marked short-lived and
-verified, while dashed Memory and Gateway boxes remain deployment targets. The public demo at
-<https://wellkilo.github.io/Quorum/> is a static, visibly synthetic replay, not a disguised Runtime.
-The source, tests, and diagram are available at <https://github.com/wellkilo/Quorum>.
+That distinction is encoded in the architecture image: Runtime, Memory, and Gateway are marked as
+short-lived verified lifecycles, while the managed-trace boundary remains unevidenced. The public
+demo at <https://wellkilo.github.io/Quorum/> is a static, visibly synthetic replay, not a disguised
+Runtime. The source, tests, and diagram are available at <https://github.com/wellkilo/Quorum>.
 
 For Quorum, autonomy is not the absence of a human. It is a specific, earned, testable authority
 state, enforced at the last responsible moment before an action leaves the system.
