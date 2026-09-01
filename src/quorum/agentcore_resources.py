@@ -128,9 +128,19 @@ def delete_memory_and_wait(
     poll_interval_seconds: float = 5,
     sleep: Callable[[float], None] = time.sleep,
 ) -> None:
-    control.delete_memory(memoryId=memory_id)
+    def get_memory() -> dict[str, Any]:
+        return control.get_memory(memoryId=memory_id)
+
+    if _resource_is_missing(get_memory):
+        return
+    if not _resource_is_deleting(get_memory(), response_object_key="memory"):
+        try:
+            control.delete_memory(memoryId=memory_id)
+        except ClientError as exc:
+            if not _delete_is_already_in_progress(exc, get_memory, response_object_key="memory"):
+                raise
     _wait_until_missing(
-        lambda: control.get_memory(memoryId=memory_id),
+        get_memory,
         resource_label="Memory",
         timeout_seconds=timeout_seconds,
         poll_interval_seconds=poll_interval_seconds,
@@ -200,17 +210,39 @@ def delete_gateway_and_wait(
     sleep: Callable[[float], None] = time.sleep,
 ) -> None:
     if target_id is not None:
-        control.delete_gateway_target(gatewayIdentifier=gateway_id, targetId=target_id)
+
+        def get_gateway_target() -> dict[str, Any]:
+            return control.get_gateway_target(gatewayIdentifier=gateway_id, targetId=target_id)
+
+        if not _resource_is_missing(get_gateway_target) and not _resource_is_deleting(
+            get_gateway_target()
+        ):
+            try:
+                control.delete_gateway_target(gatewayIdentifier=gateway_id, targetId=target_id)
+            except ClientError as exc:
+                if not _delete_is_already_in_progress(exc, get_gateway_target):
+                    raise
         _wait_until_missing(
-            lambda: control.get_gateway_target(gatewayIdentifier=gateway_id, targetId=target_id),
+            get_gateway_target,
             resource_label="Gateway target",
             timeout_seconds=timeout_seconds,
             poll_interval_seconds=poll_interval_seconds,
             sleep=sleep,
         )
-    control.delete_gateway(gatewayIdentifier=gateway_id)
+
+    def get_gateway() -> dict[str, Any]:
+        return control.get_gateway(gatewayIdentifier=gateway_id)
+
+    if _resource_is_missing(get_gateway):
+        return
+    if not _resource_is_deleting(get_gateway()):
+        try:
+            control.delete_gateway(gatewayIdentifier=gateway_id)
+        except ClientError as exc:
+            if not _delete_is_already_in_progress(exc, get_gateway):
+                raise
     _wait_until_missing(
-        lambda: control.get_gateway(gatewayIdentifier=gateway_id),
+        get_gateway,
         resource_label="Gateway",
         timeout_seconds=timeout_seconds,
         poll_interval_seconds=poll_interval_seconds,
@@ -268,6 +300,46 @@ def _wait_until_missing(
         if time.monotonic() >= deadline:
             raise TimeoutError(f"{resource_label} was not deleted")
         sleep(poll_interval_seconds)
+
+
+def _resource_is_missing(getter: Callable[[], dict[str, Any]]) -> bool:
+    try:
+        getter()
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") == "ResourceNotFoundException":
+            return True
+        raise
+    return False
+
+
+def _resource_is_deleting(
+    response: Mapping[str, Any], *, response_object_key: str | None = None
+) -> bool:
+    status_source = response
+    if response_object_key is not None:
+        status_source = _mapping(
+            response.get(response_object_key),
+            f"Resource response is missing {response_object_key}",
+        )
+    status = status_source.get("status")
+    return isinstance(status, str) and status in {"DELETING", "DELETE_PENDING"}
+
+
+def _delete_is_already_in_progress(
+    exc: ClientError,
+    getter: Callable[[], dict[str, Any]],
+    *,
+    response_object_key: str | None = None,
+) -> bool:
+    if exc.response.get("Error", {}).get("Code") != "ValidationException":
+        return False
+    try:
+        response = getter()
+    except ClientError as get_exc:
+        error = get_exc.response.get("Error")
+        code = error.get("Code") if isinstance(error, Mapping) else None
+        return isinstance(code, str) and code == "ResourceNotFoundException"
+    return _resource_is_deleting(response, response_object_key=response_object_key)
 
 
 def _strategy_names(value: object) -> tuple[str, ...]:

@@ -127,9 +127,21 @@ class AgentCoreResourceLifecycleTest(unittest.TestCase):
 
     def test_cleanup_waits_until_resources_are_missing(self) -> None:
         control = MagicMock()
-        control.get_gateway_target.side_effect = _not_found("GetGatewayTarget")
-        control.get_gateway.side_effect = _not_found("GetGateway")
-        control.get_memory.side_effect = _not_found("GetMemory")
+        control.get_gateway_target.side_effect = [
+            {"status": "READY"},
+            {"status": "READY"},
+            _not_found("GetGatewayTarget"),
+        ]
+        control.get_gateway.side_effect = [
+            {"status": "READY"},
+            {"status": "READY"},
+            _not_found("GetGateway"),
+        ]
+        control.get_memory.side_effect = [
+            {"memory": {"status": "ACTIVE"}},
+            {"memory": {"status": "ACTIVE"}},
+            _not_found("GetMemory"),
+        ]
 
         delete_gateway_and_wait(
             control, "QuorumGateway-123", "target-123", sleep=lambda _seconds: None
@@ -139,6 +151,25 @@ class AgentCoreResourceLifecycleTest(unittest.TestCase):
         control.delete_gateway_target.assert_called_once()
         control.delete_gateway.assert_called_once()
         control.delete_memory.assert_called_once()
+
+    def test_cleanup_is_idempotent_for_resources_already_deleting(self) -> None:
+        control = MagicMock()
+        control.get_gateway.side_effect = [
+            {"status": "DELETING"},
+            {"status": "DELETING"},
+            _not_found("GetGateway"),
+        ]
+        control.get_memory.side_effect = [
+            {"memory": {"status": "DELETING"}},
+            {"memory": {"status": "DELETING"}},
+            _not_found("GetMemory"),
+        ]
+
+        delete_gateway_and_wait(control, "QuorumGateway-123", None, sleep=lambda _: None)
+        delete_memory_and_wait(control, "QuorumMemory123", sleep=lambda _: None)
+
+        control.delete_gateway.assert_not_called()
+        control.delete_memory.assert_not_called()
 
     def test_tool_discovery_performs_no_tool_call(self) -> None:
         tools = [

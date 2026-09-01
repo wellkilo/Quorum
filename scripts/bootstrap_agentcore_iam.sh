@@ -94,7 +94,7 @@ jq -n \
         Action: "bedrock-agentcore:GetWorkloadIdentity",
         Resource: [
           ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/" + $runtime_name + "-*"),
-          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/QuorumGateway-*")
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/quorumgateway-*")
         ],
         Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
@@ -105,7 +105,7 @@ jq -n \
         Resource: [
           ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default"),
           ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/" + $runtime_name + "-*"),
-          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/QuorumGateway-*")
+          ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":workload-identity-directory/default/workload-identity/quorumgateway-*")
         ],
         Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },

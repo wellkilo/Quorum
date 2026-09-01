@@ -86,7 +86,7 @@ fi
                     "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
                     "workload-identity-directory/default/workload-identity/QuorumRuntime-*",
                     "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
-                    "workload-identity-directory/default/workload-identity/QuorumGateway-*",
+                    "workload-identity-directory/default/workload-identity/quorumgateway-*",
                 },
             )
             self.assertEqual(
@@ -97,7 +97,7 @@ fi
                     "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
                     "workload-identity-directory/default/workload-identity/QuorumRuntime-*",
                     "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
-                    "workload-identity-directory/default/workload-identity/QuorumGateway-*",
+                    "workload-identity-directory/default/workload-identity/quorumgateway-*",
                 },
             )
             self.assertEqual(
