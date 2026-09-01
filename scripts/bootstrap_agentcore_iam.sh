@@ -405,14 +405,20 @@ jq -n \
         "logs:DeleteLogGroup",
         "logs:PutRetentionPolicy"
       ],
-      Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:aws/spans"),
+      Resource: [
+        ("arn:aws:logs:" + $region + ":" + $account + ":log-group:aws/spans"),
+        ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/application-signals/data")
+      ],
       Condition: {StringEquals: {"aws:RequestedRegion": $region}}
     },
     {
       Sid: "CreateOnlyDefaultSharedSpanStream",
       Effect: "Allow",
       Action: "logs:CreateLogStream",
-      Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:aws/spans:log-stream:default"),
+      Resource: [
+        ("arn:aws:logs:" + $region + ":" + $account + ":log-group:aws/spans:log-stream:default"),
+        ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/application-signals/data:log-stream:default")
+      ],
       Condition: {StringEquals: {"aws:RequestedRegion": $region}}
     }
   ]

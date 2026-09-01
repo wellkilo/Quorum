@@ -14,7 +14,7 @@ from typing import Any
 import boto3
 
 POLICY_PREFIX = "QuorumTransactionSearchVerification-"
-SHARED_SPAN_LOG_GROUP = "aws/spans"
+MANAGED_LOG_GROUPS = ("aws/spans", "/aws/application-signals/data")
 PROBE_SPAN_NAME = "quorum.observability.probe"
 PRIVACY_SENTINEL = "synthetic-payload-must-not-appear-in-telemetry"
 ALLOWED_QUORUM_ATTRIBUTES = {
@@ -87,7 +87,9 @@ def prepare(args: argparse.Namespace) -> None:
         "policy_created": False,
         "previous_destination": destination,
         "previous_indexing_percentage": percentage,
-        "shared_span_log_group_preexisting": _log_group_exists(logs, SHARED_SPAN_LOG_GROUP),
+        "managed_log_groups_preexisting": {
+            name: _log_group_exists(logs, name) for name in MANAGED_LOG_GROUPS
+        },
         "region": args.region,
     }
     _write_state(args.state_file, state)
@@ -171,17 +173,27 @@ def restore(args: argparse.Namespace) -> None:
     )
     if any(item.get("policyName") == state["policy_name"] for item in remaining_policies):
         raise RuntimeError("temporary Transaction Search policy still exists after cleanup")
-    if not state.get("shared_span_log_group_preexisting", True):
-        if _log_group_exists(logs, SHARED_SPAN_LOG_GROUP):
-            logs.delete_log_group(logGroupName=SHARED_SPAN_LOG_GROUP)
-        if _log_group_exists(logs, SHARED_SPAN_LOG_GROUP):
-            raise RuntimeError("temporary shared span log group still exists after cleanup")
+    preexisting = state.get("managed_log_groups_preexisting", {})
+    for group_name in MANAGED_LOG_GROUPS:
+        if isinstance(preexisting, Mapping) and not preexisting.get(group_name, True):
+            if _log_group_exists(logs, group_name):
+                logs.delete_log_group(logGroupName=group_name)
+            if _log_group_exists(logs, group_name):
+                raise RuntimeError(
+                    f"temporary managed log group still exists after cleanup: {group_name}"
+                )
     print(f"transaction_search_destination_restored={state['previous_destination']}")
     print(f"transaction_search_indexing_restored={state['previous_indexing_percentage']}")
     print("transaction_search_policy_removed=true")
     print(
-        "shared_span_log_group_removed="
-        f"{str(not state.get('shared_span_log_group_preexisting', True)).lower()}"
+        "temporary_managed_log_groups_removed="
+        f"{
+            sum(
+                1
+                for name in MANAGED_LOG_GROUPS
+                if isinstance(preexisting, Mapping) and not preexisting.get(name, True)
+            )
+        }"
     )
 
 

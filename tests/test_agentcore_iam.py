@@ -197,14 +197,23 @@ fi
                 },
             )
             self.assertEqual(
-                span_group["Resource"],
-                "arn:aws:logs:ap-northeast-1:123456789012:log-group:aws/spans",
+                set(span_group["Resource"]),
+                {
+                    "arn:aws:logs:ap-northeast-1:123456789012:log-group:aws/spans",
+                    "arn:aws:logs:ap-northeast-1:123456789012:"
+                    "log-group:/aws/application-signals/data",
+                },
             )
             span_stream = observability_statements["CreateOnlyDefaultSharedSpanStream"]
             self.assertEqual(span_stream["Action"], "logs:CreateLogStream")
             self.assertEqual(
-                span_stream["Resource"],
-                "arn:aws:logs:ap-northeast-1:123456789012:log-group:aws/spans:log-stream:default",
+                set(span_stream["Resource"]),
+                {
+                    "arn:aws:logs:ap-northeast-1:123456789012:"
+                    "log-group:aws/spans:log-stream:default",
+                    "arn:aws:logs:ap-northeast-1:123456789012:"
+                    "log-group:/aws/application-signals/data:log-stream:default",
+                },
             )
 
             runtime_policy = json.loads(captured_runtime_policy.read_text(encoding="utf-8"))

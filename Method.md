@@ -421,10 +421,11 @@ markers, and then removes all short-lived resources. Transaction Search is enabl
 verification window with 0% indexing; the workflow restores its prior destination, indexing rate,
 and named resource policy afterward. A separate GitHub OIDC observability role holds only these
 account-level CloudWatch Logs and X-Ray configuration actions; the Runtime deployer role does not.
-The rollback is idempotent and records whether the shared `aws/spans` log group existed before the
-window; if the verification created it, cleanup deletes it after restoring the original destination.
-The observability role's create, retention, and delete permissions are scoped to that exact log group,
-and stream creation is limited to its `default` stream.
+The rollback is idempotent and records whether the managed `aws/spans` and
+`/aws/application-signals/data` log groups existed before the window; if verification created either,
+cleanup deletes it after restoring the original destination. The observability role's create,
+retention, and delete permissions are scoped to those exact groups, and stream creation is limited
+to their `default` streams.
 
 ## Slack Web API methods
 

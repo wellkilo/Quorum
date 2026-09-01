@@ -44,7 +44,10 @@ class AgentCoreObservabilityTest(unittest.TestCase):
 
         self.assertEqual(state["previous_destination"], "XRay")
         self.assertTrue(state["policy_created"])
-        self.assertFalse(state["shared_span_log_group_preexisting"])
+        self.assertEqual(
+            state["managed_log_groups_preexisting"],
+            {"aws/spans": False, "/aws/application-signals/data": False},
+        )
         logs.put_resource_policy.assert_called_once()
         xray.update_trace_segment_destination.assert_called_once_with(Destination="CloudWatchLogs")
         xray.update_indexing_rule.assert_called_once_with(
@@ -57,6 +60,8 @@ class AgentCoreObservabilityTest(unittest.TestCase):
         logs.describe_resource_policies.return_value = {"resourcePolicies": []}
         logs.describe_log_groups.side_effect = [
             {"logGroups": [{"logGroupName": "aws/spans"}]},
+            {"logGroups": []},
+            {"logGroups": [{"logGroupName": "/aws/application-signals/data"}]},
             {"logGroups": []},
         ]
         xray = MagicMock()
@@ -81,7 +86,10 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                         "policy_created": True,
                         "previous_destination": "XRay",
                         "previous_indexing_percentage": 0.0,
-                        "shared_span_log_group_preexisting": False,
+                        "managed_log_groups_preexisting": {
+                            "aws/spans": False,
+                            "/aws/application-signals/data": False,
+                        },
                         "region": "ap-northeast-1",
                     }
                 ),
@@ -96,7 +104,13 @@ class AgentCoreObservabilityTest(unittest.TestCase):
         )
         xray.update_trace_segment_destination.assert_not_called()
         xray.update_indexing_rule.assert_not_called()
-        logs.delete_log_group.assert_called_once_with(logGroupName="aws/spans")
+        self.assertEqual(
+            logs.delete_log_group.call_args_list,
+            [
+                unittest.mock.call(logGroupName="aws/spans"),
+                unittest.mock.call(logGroupName="/aws/application-signals/data"),
+            ],
+        )
 
     def test_verify_matches_managed_ids_and_rejects_forbidden_content(self) -> None:
         logs = MagicMock()
