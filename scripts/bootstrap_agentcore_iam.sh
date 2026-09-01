@@ -420,6 +420,49 @@ jq -n \
         ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/application-signals/data:log-stream:default")
       ],
       Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+    },
+    {
+      Sid: "StartTemporaryApplicationSignalsDiscovery",
+      Effect: "Allow",
+      Action: "application-signals:StartDiscovery",
+      Resource: "*",
+      Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+    },
+    {
+      Sid: "ManageOnlyApplicationSignalsServiceLinkedRole",
+      Effect: "Allow",
+      Action: [
+        "iam:CreateServiceLinkedRole",
+        "iam:DeleteServiceLinkedRole",
+        "iam:GetRole"
+      ],
+      Resource: ("arn:aws:iam::" + $account + ":role/aws-service-role/application-signals.cloudwatch.amazonaws.com/AWSServiceRoleForCloudWatchApplicationSignals"),
+      Condition: {
+        StringLikeIfExists: {"iam:AWSServiceName": "application-signals.cloudwatch.amazonaws.com"}
+      }
+    },
+    {
+      Sid: "ReadApplicationSignalsRoleDeletionStatus",
+      Effect: "Allow",
+      Action: "iam:GetServiceLinkedRoleDeletionStatus",
+      Resource: "*"
+    },
+    {
+      Sid: "ManageOnlyApplicationSignalsServiceLinkedChannel",
+      Effect: "Allow",
+      Action: [
+        "cloudtrail:CreateServiceLinkedChannel",
+        "cloudtrail:DeleteChannel"
+      ],
+      Resource: ("arn:aws:cloudtrail:" + $region + ":" + $account + ":channel/aws-service-channel/application-signals/*"),
+      Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+    },
+    {
+      Sid: "ListApplicationSignalsServiceLinkedChannels",
+      Effect: "Allow",
+      Action: "cloudtrail:ListChannels",
+      Resource: "*",
+      Condition: {StringEquals: {"aws:RequestedRegion": $region}}
     }
   ]
 }' >"${work_dir}/observability-policy.json"

@@ -177,7 +177,7 @@ fi
             observability_statements = {
                 statement["Sid"]: statement for statement in observability_policy["Statement"]
             }
-            self.assertEqual(len(observability_statements), 4)
+            self.assertEqual(len(observability_statements), 9)
             transaction_search = observability_statements[
                 "ManageTemporaryTransactionSearchForQuorum"
             ]
@@ -214,6 +214,50 @@ fi
                     "arn:aws:logs:ap-northeast-1:123456789012:"
                     "log-group:/aws/application-signals/data:log-stream:default",
                 },
+            )
+            discovery = observability_statements["StartTemporaryApplicationSignalsDiscovery"]
+            self.assertEqual(discovery["Action"], "application-signals:StartDiscovery")
+            self.assertEqual(discovery["Resource"], "*")
+            service_role = observability_statements["ManageOnlyApplicationSignalsServiceLinkedRole"]
+            self.assertEqual(
+                set(service_role["Action"]),
+                {
+                    "iam:CreateServiceLinkedRole",
+                    "iam:DeleteServiceLinkedRole",
+                    "iam:GetRole",
+                },
+            )
+            self.assertEqual(
+                service_role["Resource"],
+                "arn:aws:iam::123456789012:role/aws-service-role/"
+                "application-signals.cloudwatch.amazonaws.com/"
+                "AWSServiceRoleForCloudWatchApplicationSignals",
+            )
+            self.assertEqual(
+                service_role["Condition"]["StringLikeIfExists"],
+                {"iam:AWSServiceName": "application-signals.cloudwatch.amazonaws.com"},
+            )
+            self.assertEqual(
+                observability_statements["ReadApplicationSignalsRoleDeletionStatus"]["Action"],
+                "iam:GetServiceLinkedRoleDeletionStatus",
+            )
+            channel = observability_statements["ManageOnlyApplicationSignalsServiceLinkedChannel"]
+            self.assertEqual(
+                set(channel["Action"]),
+                {"cloudtrail:CreateServiceLinkedChannel", "cloudtrail:DeleteChannel"},
+            )
+            self.assertEqual(
+                channel["Resource"],
+                "arn:aws:cloudtrail:ap-northeast-1:123456789012:"
+                "channel/aws-service-channel/application-signals/*",
+            )
+            self.assertEqual(
+                observability_statements["ListApplicationSignalsServiceLinkedChannels"]["Action"],
+                "cloudtrail:ListChannels",
+            )
+            self.assertLessEqual(
+                len(json.dumps(observability_policy, separators=(",", ":"))),
+                10_240,
             )
 
             runtime_policy = json.loads(captured_runtime_policy.read_text(encoding="utf-8"))

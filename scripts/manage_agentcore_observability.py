@@ -12,9 +12,12 @@ from pathlib import Path
 from typing import Any
 
 import boto3
+from botocore.exceptions import ClientError
 
 POLICY_PREFIX = "QuorumTransactionSearchVerification-"
 MANAGED_LOG_GROUPS = ("aws/spans", "/aws/application-signals/data")
+APPLICATION_SIGNALS_ROLE = "AWSServiceRoleForCloudWatchApplicationSignals"
+APPLICATION_SIGNALS_CHANNEL_FRAGMENT = "channel/aws-service-channel/application-signals/"
 PROBE_SPAN_NAME = "quorum.observability.probe"
 PRIVACY_SENTINEL = "synthetic-payload-must-not-appear-in-telemetry"
 ALLOWED_QUORUM_ATTRIBUTES = {
@@ -68,12 +71,40 @@ def _log_group_exists(logs: Any, name: str) -> bool:
     return any(item.get("logGroupName") == name for item in groups)
 
 
+def _role_exists(iam: Any, name: str) -> bool:
+    try:
+        iam.get_role(RoleName=name)
+        return True
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") == "NoSuchEntity":
+            return False
+        raise
+
+
+def _application_signals_channel_arns(cloudtrail: Any) -> set[str]:
+    matches: set[str] = set()
+    next_token: str | None = None
+    while True:
+        request = {"NextToken": next_token} if next_token else {}
+        response = cloudtrail.list_channels(**request)
+        matches.update(
+            item["ChannelArn"]
+            for item in response.get("Channels", [])
+            if APPLICATION_SIGNALS_CHANNEL_FRAGMENT in item.get("ChannelArn", "")
+        )
+        next_token = response.get("NextToken")
+        if not next_token:
+            return matches
+
+
 def prepare(args: argparse.Namespace) -> None:
     if not re.fullmatch(r"QuorumTransactionSearchVerification-[A-Za-z0-9-]+", args.policy_name):
         raise ValueError("policy name must be unique and use the Quorum verification prefix")
     session = boto3.Session(region_name=args.region)
     logs = session.client("logs")
     xray = session.client("xray")
+    iam = session.client("iam")
+    cloudtrail = session.client("cloudtrail")
     existing = logs.describe_resource_policies(policyScope="ACCOUNT").get("resourcePolicies", [])
     if any(item.get("policyName") == args.policy_name for item in existing):
         raise RuntimeError("refusing to overwrite an existing CloudWatch Logs resource policy")
@@ -90,6 +121,10 @@ def prepare(args: argparse.Namespace) -> None:
         "managed_log_groups_preexisting": {
             name: _log_group_exists(logs, name) for name in MANAGED_LOG_GROUPS
         },
+        "application_signals_role_preexisting": _role_exists(iam, APPLICATION_SIGNALS_ROLE),
+        "application_signals_channel_arns_preexisting": sorted(
+            _application_signals_channel_arns(cloudtrail)
+        ),
         "region": args.region,
     }
     _write_state(args.state_file, state)
@@ -124,13 +159,23 @@ def restore(args: argparse.Namespace) -> None:
     session = boto3.Session(region_name=state["region"])
     logs = session.client("logs")
     xray = session.client("xray")
+    iam = session.client("iam")
+    cloudtrail = session.client("cloudtrail")
     errors: list[str] = []
-    current_destination = xray.get_trace_segment_destination()
-    current_rules = xray.get_indexing_rules().get("IndexingRules", [])
-    current_default = next(item for item in current_rules if item.get("Name") == "Default")
-    current_percentage = current_default["Rule"]["Probabilistic"]["DesiredSamplingPercentage"]
+    current_destination: Mapping[str, Any] | None = None
+    current_percentage: float | None = None
     try:
-        if current_percentage != state["previous_indexing_percentage"]:
+        current_destination = xray.get_trace_segment_destination()
+        current_rules = xray.get_indexing_rules().get("IndexingRules", [])
+        current_default = next(item for item in current_rules if item.get("Name") == "Default")
+        current_percentage = current_default["Rule"]["Probabilistic"]["DesiredSamplingPercentage"]
+    except Exception as exc:  # cleanup must continue across independent resources
+        errors.append(f"current X-Ray settings read failed: {type(exc).__name__}")
+    try:
+        if (
+            current_percentage is not None
+            and current_percentage != state["previous_indexing_percentage"]
+        ):
             xray.update_indexing_rule(
                 Name="Default",
                 Rule={
@@ -142,7 +187,10 @@ def restore(args: argparse.Namespace) -> None:
     except Exception as exc:  # cleanup must continue across independent resources
         errors.append(f"indexing restore failed: {type(exc).__name__}")
     try:
-        if current_destination.get("Destination") != state["previous_destination"]:
+        if (
+            current_destination is not None
+            and current_destination.get("Destination") != state["previous_destination"]
+        ):
             xray.update_trace_segment_destination(Destination=state["previous_destination"])
     except Exception as exc:  # cleanup must continue across independent resources
         errors.append(f"destination restore failed: {type(exc).__name__}")
@@ -151,50 +199,96 @@ def restore(args: argparse.Namespace) -> None:
             logs.delete_resource_policy(policyName=state["policy_name"])
         except Exception as exc:  # cleanup must report, not hide, incomplete rollback
             errors.append(f"policy deletion failed: {type(exc).__name__}")
-    if errors:
-        raise RuntimeError("; ".join(errors))
-    for _attempt in range(30):
-        restored_destination = xray.get_trace_segment_destination()
-        if (
-            restored_destination.get("Destination") == state["previous_destination"]
-            and restored_destination.get("Status") == "ACTIVE"
-        ):
-            break
-        time.sleep(2)
-    else:
-        raise RuntimeError("trace destination restoration did not become active")
-    current_rules = xray.get_indexing_rules().get("IndexingRules", [])
-    current_default = next(item for item in current_rules if item.get("Name") == "Default")
-    current_percentage = current_default["Rule"]["Probabilistic"]["DesiredSamplingPercentage"]
-    if current_percentage != state["previous_indexing_percentage"]:
-        raise RuntimeError("indexing percentage restoration could not be verified")
-    remaining_policies = logs.describe_resource_policies(policyScope="ACCOUNT").get(
-        "resourcePolicies", []
-    )
-    if any(item.get("policyName") == state["policy_name"] for item in remaining_policies):
-        raise RuntimeError("temporary Transaction Search policy still exists after cleanup")
+    try:
+        for _attempt in range(30):
+            restored_destination = xray.get_trace_segment_destination()
+            if (
+                restored_destination.get("Destination") == state["previous_destination"]
+                and restored_destination.get("Status") == "ACTIVE"
+            ):
+                break
+            time.sleep(2)
+        else:
+            errors.append("trace destination restoration did not become active")
+        current_rules = xray.get_indexing_rules().get("IndexingRules", [])
+        current_default = next(item for item in current_rules if item.get("Name") == "Default")
+        restored_percentage = current_default["Rule"]["Probabilistic"]["DesiredSamplingPercentage"]
+        if restored_percentage != state["previous_indexing_percentage"]:
+            errors.append("indexing percentage restoration could not be verified")
+    except Exception as exc:  # cleanup must continue across independent resources
+        errors.append(f"X-Ray restoration verification failed: {type(exc).__name__}")
+    try:
+        remaining_policies = logs.describe_resource_policies(policyScope="ACCOUNT").get(
+            "resourcePolicies", []
+        )
+        if any(item.get("policyName") == state["policy_name"] for item in remaining_policies):
+            errors.append("temporary Transaction Search policy still exists after cleanup")
+    except Exception as exc:  # cleanup must continue across independent resources
+        errors.append(f"policy deletion verification failed: {type(exc).__name__}")
     preexisting = state.get("managed_log_groups_preexisting", {})
+    removed_log_groups = 0
     for group_name in MANAGED_LOG_GROUPS:
         if isinstance(preexisting, Mapping) and not preexisting.get(group_name, True):
-            if _log_group_exists(logs, group_name):
-                logs.delete_log_group(logGroupName=group_name)
-            if _log_group_exists(logs, group_name):
-                raise RuntimeError(
-                    f"temporary managed log group still exists after cleanup: {group_name}"
+            try:
+                if _log_group_exists(logs, group_name):
+                    logs.delete_log_group(logGroupName=group_name)
+                    removed_log_groups += 1
+                if _log_group_exists(logs, group_name):
+                    errors.append(f"temporary managed log group still exists: {group_name}")
+            except Exception as exc:  # cleanup must continue across independent resources
+                errors.append(
+                    f"managed log group cleanup failed ({group_name}): {type(exc).__name__}"
                 )
+    previous_channels = set(state.get("application_signals_channel_arns_preexisting", []))
+    new_channels: set[str] = set()
+    try:
+        new_channels = _application_signals_channel_arns(cloudtrail) - previous_channels
+        for channel_arn in new_channels:
+            cloudtrail.delete_channel(Channel=channel_arn)
+        for _attempt in range(30):
+            if not (_application_signals_channel_arns(cloudtrail) - previous_channels):
+                break
+            time.sleep(2)
+        else:
+            errors.append("temporary Application Signals channel still exists after cleanup")
+    except Exception as exc:  # cleanup must continue to the service-linked role
+        errors.append(f"Application Signals channel cleanup failed: {type(exc).__name__}")
+    role_removed = False
+    try:
+        if not state.get("application_signals_role_preexisting", True) and _role_exists(
+            iam, APPLICATION_SIGNALS_ROLE
+        ):
+            task = iam.delete_service_linked_role(RoleName=APPLICATION_SIGNALS_ROLE)
+            task_id = task["DeletionTaskId"]
+            for _attempt in range(30):
+                deletion = iam.get_service_linked_role_deletion_status(DeletionTaskId=task_id)
+                status = deletion["Status"]
+                if status == "SUCCEEDED":
+                    role_removed = True
+                    break
+                if status == "FAILED":
+                    reason = deletion.get("Reason", "unspecified")
+                    errors.append(
+                        f"Application Signals service-linked role cleanup failed: {reason}"
+                    )
+                    break
+                time.sleep(2)
+            else:
+                errors.append("Application Signals service-linked role cleanup timed out")
+        if not state.get("application_signals_role_preexisting", True) and _role_exists(
+            iam, APPLICATION_SIGNALS_ROLE
+        ):
+            errors.append("temporary Application Signals role still exists after cleanup")
+    except Exception as exc:
+        errors.append(f"Application Signals role cleanup failed: {type(exc).__name__}")
+    if errors:
+        raise RuntimeError("; ".join(errors))
     print(f"transaction_search_destination_restored={state['previous_destination']}")
     print(f"transaction_search_indexing_restored={state['previous_indexing_percentage']}")
     print("transaction_search_policy_removed=true")
-    print(
-        "temporary_managed_log_groups_removed="
-        f"{
-            sum(
-                1
-                for name in MANAGED_LOG_GROUPS
-                if isinstance(preexisting, Mapping) and not preexisting.get(name, True)
-            )
-        }"
-    )
+    print(f"temporary_managed_log_groups_removed={removed_log_groups}")
+    print(f"temporary_application_signals_channels_removed={len(new_channels)}")
+    print(f"temporary_application_signals_role_removed={str(role_removed).lower()}")
 
 
 def _walk(value: object) -> Iterable[Mapping[str, Any]]:

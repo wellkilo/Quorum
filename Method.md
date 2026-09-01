@@ -426,6 +426,8 @@ The rollback is idempotent and records whether the managed `aws/spans` and
 cleanup deletes it after restoring the original destination. The observability role's create,
 retention, and delete permissions are scoped to those exact groups, and stream creation is limited
 to their `default` streams.
+Because the X-Ray API initializes Application Signals, the workflow also snapshots its service-linked
+role and channel and deletes only resources introduced by the verification window.
 
 ## Slack Web API methods
 
