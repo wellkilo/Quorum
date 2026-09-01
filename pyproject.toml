@@ -42,6 +42,7 @@ quorum-validate-gold = "quorum.gold:main"
 quorum-provision-memory = "quorum.memory:main"
 quorum-provision-gateway = "quorum.gateway:main"
 quorum-runtime = "quorum.runtime:main"
+quorum-slack-smoke = "quorum.slack_smoke:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quorum"]

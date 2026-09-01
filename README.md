@@ -13,7 +13,7 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 ## Status
 
-Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, Slack ingress plus receipts and private questions, transactional SQLite/PostgreSQL persistence, AgentCore Runtime/Memory/Gateway adapters, PII-safe OpenTelemetry spans, signed single-use undo, an anonymous synthetic replay UI, Alembic migrations, and a 50-case synthetic evaluation suite. A short-lived AgentCore Runtime deployment has been verified through GitHub OIDC; live Slack, Google Workspace, AgentCore Memory, and AgentCore Gateway calls are not yet claimed.
+Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, all three Slack interaction adapters, transactional SQLite/PostgreSQL persistence, AgentCore Runtime/Memory/Gateway adapters, PII-safe OpenTelemetry spans, signed single-use undo, an anonymous synthetic replay UI, Alembic migrations, and a 50-case synthetic evaluation suite. A short-lived AgentCore Runtime deployment has been verified through GitHub OIDC; live Slack, Google Workspace, AgentCore Memory, and AgentCore Gateway calls are not yet claimed.
 
 No real organization data, user quote, impact result, continuously hosted Runtime, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
 
@@ -64,6 +64,24 @@ export QUORUM_SLACK_BOT_TOKEN='<injected-secret>'
 export QUORUM_SLACK_SIGNING_SECRET='<injected-secret>'
 export QUORUM_SLACK_PSEUDONYM_KEY='<separate-injected-secret>'
 ```
+
+Preview the exact three-message synthetic Slack smoke path without credentials or network calls:
+
+```bash
+uv run quorum-slack-smoke
+```
+
+To post it to a dedicated test workspace, inject a bot token with `chat:write` and `im:write`, add
+the bot to the test channel, set `QUORUM_SLACK_DEMO_CHANNEL_ID` and
+`QUORUM_SLACK_DEMO_PARTICIPANT_ID`, then explicitly confirm the three live posts:
+
+```bash
+uv run quorum-slack-smoke --confirm-live-posts
+```
+
+The receipt, direct question, and weekly summary are visibly labeled synthetic. The command makes
+zero Bedrock calls and zero Google or AgentCore Gateway tool calls. It prints message timestamps but
+never the token or message content.
 
 The anonymous replay requires no credentials and is deliberately synthetic. Start the exact
 AgentCore-compatible ASGI application locally, then open `http://127.0.0.1:8080`:
@@ -292,7 +310,8 @@ Do not reuse a published example key for real data. The key must never be commit
   against SQLite. A live PostgreSQL network integration result will only be claimed after a
   dedicated test endpoint is available.
 - Google Calendar, Gmail Draft, Google Forms, and Slack adapters use their real SDK method contracts,
-  but tests replace only the network boundary. No live external API result is claimed yet.
+  but tests replace only the network boundary. The synthetic three-surface Slack smoke path is
+  executable and fail-closed; no live external API result is claimed yet.
 - The undo transport is implemented and locally tested: `GET` renders a confirmation page and only
   `POST` consumes the token. Its public HTTPS deployment is not yet claimed.
 - The three tools have typed AgentCore Gateway schemas, an IAM MCP client, and a Lambda dispatch
@@ -325,7 +344,7 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Tool-name and canonical-argument binding between approval and execution
 - [x] Reversible Google Calendar, Gmail Draft, and Google Forms SDK adapters
 - [x] Idempotent execution receipts, append-only audit, and signed single-use 24-hour undo
-- [x] Slack one-line group receipt and one-question direct-message adapters
+- [x] Slack one-line group receipt, one-question direct message, and one-screen weekly summary
 - [x] 50-case synthetic gold set and executable metric pipeline
 - [ ] Bedrock model evaluation result
 - [x] AgentCore Runtime, Memory session manager, Gateway MCP, and safe OTEL integration code

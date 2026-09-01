@@ -27,7 +27,8 @@ class ReplaySnapshot(StrictModel):
     baseline: ReplayMetrics
     quorum: ReplayMetrics
     interrupt_budget_limit_per_person: int = 2
-    people_interrupted: int = 2
+    people_interrupted: int = 3
+    max_interruptions_per_person: int = 2
     receipts: list[str]
     timeline: list[str]
     disclaimer: str = "Synthetic demonstration data; not a measured real-world outcome."

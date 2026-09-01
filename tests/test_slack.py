@@ -8,6 +8,7 @@ from slack_sdk.errors import SlackApiError
 
 from quorum.models import (
     AutonomySnapshot,
+    DataClassification,
     DecisionStatus,
     ExecutionProvider,
     ExecutionReceipt,
@@ -17,6 +18,7 @@ from quorum.models import (
     RiskTier,
     TaskClass,
     TimeoutDefault,
+    WeeklySummary,
 )
 from quorum.slack import SlackDeliveryError, SlackNotifier
 
@@ -97,6 +99,23 @@ class SlackNotifierTest(unittest.TestCase):
         self.assertEqual([button["text"]["text"] for button in buttons], ["Open", "Undo"])
         self.assertEqual(buttons[1]["url"], make_receipt().undo_url)
 
+    def test_synthetic_group_receipt_is_visibly_labeled(self) -> None:
+        client = FakeSlackClient()
+
+        SlackNotifier(client).send_group_receipt(
+            "C_GROUP",
+            make_receipt(),
+            data_classification=DataClassification.SYNTHETIC,
+        )
+
+        payload = client.calls[0][1]
+        self.assertTrue(payload["text"].startswith("Synthetic demo —"))
+        buttons = payload["blocks"][1]["elements"]
+        self.assertEqual(
+            [button["text"]["text"] for button in buttons],
+            ["Open demo", "Undo preview"],
+        )
+
     def test_private_question_opens_a_dm_then_posts_timeout_and_default(self) -> None:
         client = FakeSlackClient()
 
@@ -109,6 +128,66 @@ class SlackNotifierTest(unittest.TestCase):
         self.assertEqual(payload["channel"], "D_PRIVATE")
         self.assertIn("2026-08-27T09:00:00+00:00", payload["text"])
         self.assertIn("execute_and_notify", payload["text"])
+
+    def test_weekly_summary_is_one_message_with_interrupt_budget_evidence(self) -> None:
+        client = FakeSlackClient()
+        summary = WeeklySummary(
+            organization_id="org_test",
+            week_ending=NOW.date(),
+            closed_decisions=6,
+            decision_latency_p50_hours=7.0,
+            interruption_count=6,
+            people_interrupted=3,
+            max_interruptions_per_person=2,
+            undo_rate=1 / 6,
+            data_classification=DataClassification.SYNTHETIC,
+        )
+
+        timestamp = SlackNotifier(client).send_weekly_summary("C_GROUP", summary)
+
+        self.assertEqual(timestamp, "1780000000.000100")
+        self.assertEqual(len(client.calls), 1)
+        method, payload = client.calls[0]
+        self.assertEqual(method, "chat_postMessage")
+        self.assertEqual(payload["channel"], "C_GROUP")
+        self.assertTrue(payload["text"].startswith("Synthetic demo —"))
+        self.assertEqual(
+            [block["type"] for block in payload["blocks"]],
+            ["header", "section", "context"],
+        )
+        field_text = " ".join(field["text"] for field in payload["blocks"][1]["fields"])
+        self.assertIn("*Total interruptions*\n6", field_text)
+        self.assertIn("*Max per person*\n2/2", field_text)
+        context = payload["blocks"][2]["elements"][0]["text"]
+        self.assertIn("not a measured real-world outcome", context)
+
+    def test_weekly_summary_rejects_an_interrupt_budget_violation(self) -> None:
+        with self.assertRaisesRegex(ValueError, "exceeds the per-person interrupt budget"):
+            WeeklySummary(
+                organization_id="org_test",
+                week_ending=NOW.date(),
+                closed_decisions=6,
+                decision_latency_p50_hours=7.0,
+                interruption_count=6,
+                people_interrupted=3,
+                max_interruptions_per_person=3,
+                undo_rate=0.0,
+                data_classification=DataClassification.SYNTHETIC,
+            )
+
+    def test_weekly_summary_rejects_an_impossible_total_interrupt_count(self) -> None:
+        with self.assertRaisesRegex(ValueError, "cannot fit within the per-person budget"):
+            WeeklySummary(
+                organization_id="org_test",
+                week_ending=NOW.date(),
+                closed_decisions=6,
+                decision_latency_p50_hours=7.0,
+                interruption_count=6,
+                people_interrupted=2,
+                max_interruptions_per_person=2,
+                undo_rate=0.0,
+                data_classification=DataClassification.SYNTHETIC,
+            )
 
     def test_slack_error_exposes_only_a_safe_code(self) -> None:
         secret_token = "synthetic-token-that-must-not-leak"

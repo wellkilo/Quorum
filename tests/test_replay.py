@@ -16,6 +16,8 @@ class ReplayStoreTest(unittest.TestCase):
         self.assertEqual(snapshot.data_classification, "synthetic")
         self.assertIn("not a measured real-world outcome", snapshot.disclaimer)
         self.assertEqual(snapshot.interrupt_budget_limit_per_person, 2)
+        self.assertEqual(snapshot.people_interrupted, 3)
+        self.assertEqual(snapshot.max_interruptions_per_person, 2)
         self.assertEqual(snapshot.baseline.message_count, 214)
         self.assertEqual(snapshot.quorum.interruption_count, 6)
         self.assertEqual(snapshot.quorum.decision_latency_p50_hours, 7.0)

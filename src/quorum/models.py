@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import IntEnum, StrEnum
 from typing import Annotated, Literal
 
@@ -278,6 +278,33 @@ class InterruptBudgetSnapshot(StrictModel):
     @property
     def remaining(self) -> int:
         return max(self.limit - self.spent, 0)
+
+
+class WeeklySummary(StrictModel):
+    """PII-safe metrics for Quorum's single weekly Slack summary."""
+
+    organization_id: OpaqueId
+    week_ending: date
+    closed_decisions: int = Field(ge=0)
+    decision_latency_p50_hours: float = Field(ge=0)
+    interruption_count: int = Field(ge=0)
+    people_interrupted: int = Field(ge=0)
+    max_interruptions_per_person: int = Field(ge=0)
+    interrupt_budget_limit_per_person: int = Field(default=2, ge=1)
+    undo_rate: float = Field(ge=0.0, le=1.0)
+    data_classification: DataClassification
+
+    @model_validator(mode="after")
+    def enforce_interrupt_budget(self) -> WeeklySummary:
+        if self.people_interrupted > self.interruption_count:
+            raise ValueError("people_interrupted cannot exceed interruption_count")
+        if self.interruption_count > (
+            self.people_interrupted * self.interrupt_budget_limit_per_person
+        ):
+            raise ValueError("weekly interruption count cannot fit within the per-person budget")
+        if self.max_interruptions_per_person > self.interrupt_budget_limit_per_person:
+            raise ValueError("weekly summary exceeds the per-person interrupt budget")
+        return self
 
 
 class PolicyDecision(StrictModel):

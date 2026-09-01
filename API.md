@@ -77,6 +77,22 @@ This is an internal typed boundary, not a public HTTP endpoint.
 Allowed `data_classification` values are `synthetic` and `redacted-real`. Raw or unredacted data is
 not a valid Graph input.
 
+## 2.1 Slack outbound interaction contract
+
+Quorum has exactly three outbound Slack interactions:
+
+1. one `chat.postMessage` group receipt with optional Open and Undo URL buttons;
+2. one `conversations.open(users=<one participant>)` call followed by one private
+   `chat.postMessage` decision question;
+3. one weekly `chat.postMessage` with six compact fields: closed decisions, decision-latency P50,
+   total interruptions, people interrupted, maximum interrupts per person, and undo rate.
+
+`WeeklySummary` rejects a weekly interruption total that cannot fit within the declared number of
+people and the default two-interrupt-per-person budget. Synthetic smoke messages begin with
+`Synthetic demo` and the weekly context states that they are not a measured real-world outcome.
+`quorum-slack-smoke` previews by default; only `--confirm-live-posts` performs the three Web API
+writes. The command makes zero model calls and zero execution-tool calls.
+
 ## 3. Ledger extraction output
 
 The Ledger Curator returns a typed `ExtractionEnvelope`. A candidate is rejected before storage if

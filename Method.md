@@ -405,11 +405,15 @@ The outbound adapter implements these Slack Web API methods:
 
 - `chat.postMessage` for the one-line group receipt;
 - `conversations.open` followed by `chat.postMessage` for a private question;
+- one `chat.postMessage` with compact Block Kit fields for the weekly summary;
 - Block Kit URL buttons for Open and Undo.
 
 The required outbound bot scopes are `chat:write` and `im:write`. Slack Events ingress verifies the
 exact raw body with Slack's v0 HMAC scheme and a five-minute replay window, rejects malformed event
 timestamps, ignores bots and subtypes, pseudonymizes workspace/channel/user/message IDs, and redacts
 mentions, email addresses, phone numbers, and IPv4 addresses before Graph invocation. The ASGI route
-returns the 200 acknowledgement before background Graph processing. A live credentialed workspace
-test and the Sunday summary are still outstanding.
+returns the 200 acknowledgement before background Graph processing. `quorum-slack-smoke` reuses the
+versioned synthetic-week fixture and posts exactly one receipt, one private question, and one weekly
+summary only when `--confirm-live-posts` is present. Synthetic receipt links are previews and do not
+invoke Google providers or Gateway tools. The weekly type rejects totals that cannot fit within the
+two-interrupt-per-person budget. A live credentialed workspace test is still outstanding.
