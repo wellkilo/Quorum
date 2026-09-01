@@ -423,6 +423,7 @@ and named resource policy afterward. A separate GitHub OIDC observability role h
 account-level CloudWatch Logs and X-Ray configuration actions; the Runtime deployer role does not.
 The rollback is idempotent and records whether the shared `aws/spans` log group existed before the
 window; if the verification created it, cleanup deletes it after restoring the original destination.
+The observability role's create, retention, and delete permissions are scoped to that exact log group.
 
 ## Slack Web API methods
 

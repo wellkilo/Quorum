@@ -190,7 +190,11 @@ fi
             span_group = observability_statements["CreateDeleteOnlySharedSpanLogGroup"]
             self.assertEqual(
                 set(span_group["Action"]),
-                {"logs:CreateLogGroup", "logs:DeleteLogGroup"},
+                {
+                    "logs:CreateLogGroup",
+                    "logs:DeleteLogGroup",
+                    "logs:PutRetentionPolicy",
+                },
             )
             self.assertEqual(
                 span_group["Resource"],

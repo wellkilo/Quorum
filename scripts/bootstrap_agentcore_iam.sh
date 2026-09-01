@@ -400,7 +400,11 @@ jq -n \
     {
       Sid: "CreateDeleteOnlySharedSpanLogGroup",
       Effect: "Allow",
-      Action: ["logs:CreateLogGroup", "logs:DeleteLogGroup"],
+      Action: [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy"
+      ],
       Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:aws/spans"),
       Condition: {StringEquals: {"aws:RequestedRegion": $region}}
     }
