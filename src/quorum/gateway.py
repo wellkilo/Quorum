@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import os
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from functools import lru_cache
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import boto3  # type: ignore[import-untyped]
-from mcp_proxy_for_aws.client import (  # type: ignore[import-untyped]
-    aws_iam_streamablehttp_client,
-)
 from pydantic import BaseModel, ValidationError
-from strands.tools.mcp import MCPClient
-from strands.tools.mcp.mcp_agent_tool import MCPAgentTool
+
+if TYPE_CHECKING:
+    from strands.tools.mcp.mcp_agent_tool import MCPAgentTool
 
 from quorum.database import DatabaseSettings, create_database_engine
 from quorum.execution import ActionExecutionService, build_action_execution_service
@@ -65,6 +64,44 @@ def gateway_tool_definitions() -> list[dict[str, object]]:
             }
         )
     return definitions
+
+
+def gateway_create_request(*, gateway_name: str, role_arn: str) -> dict[str, object]:
+    """Return the reviewed AWS_IAM MCP Gateway control-plane request."""
+
+    return {
+        "name": gateway_name,
+        "description": "Quorum reversible execution tools",
+        "roleArn": role_arn,
+        "protocolType": "MCP",
+        "authorizerType": "AWS_IAM",
+        "tags": {
+            "Project": "Quorum",
+            "DataClassification": "SyntheticOnly",
+            "CostMode": "ZeroModel",
+        },
+    }
+
+
+def gateway_target_request(
+    *, gateway_id: str, lambda_arn: str, target_name: str = "quorum-execution"
+) -> dict[str, object]:
+    """Return the narrow Lambda target request shared by CLI and cloud verification."""
+
+    return {
+        "gatewayIdentifier": gateway_id,
+        "name": target_name,
+        "description": "Three reversible Quorum action tools",
+        "targetConfiguration": {
+            "mcp": {
+                "lambda": {
+                    "lambdaArn": lambda_arn,
+                    "toolSchema": {"inlinePayload": gateway_tool_definitions()},
+                }
+            }
+        },
+        "credentialProviderConfigurations": [{"credentialProviderType": "GATEWAY_IAM_ROLE"}],
+    }
 
 
 def _gateway_schema(schema: Mapping[str, Any], root: Mapping[str, Any]) -> dict[str, object]:
@@ -119,6 +156,12 @@ def gateway_executor_tools(
         raise GatewayConfigurationError("AgentCore Gateway endpoint must use HTTPS")
     if not region_name:
         raise GatewayConfigurationError("AgentCore Gateway region is required")
+    from mcp_proxy_for_aws.client import (  # type: ignore[import-untyped]
+        aws_iam_streamablehttp_client,
+    )
+    from strands.tools.mcp import MCPClient
+    from strands.tools.mcp.mcp_agent_tool import MCPAgentTool
+
     client = MCPClient(
         lambda: aws_iam_streamablehttp_client(
             endpoint=endpoint,
@@ -156,6 +199,10 @@ def _get_lambda_service() -> ActionExecutionService:
 def gateway_lambda_handler(event: object, context: LambdaContext) -> dict[str, object]:
     """Validate a Gateway Lambda target event and call the existing execution service."""
 
+    if os.environ.get("QUORUM_EXECUTION_ENABLED", "").strip().lower() not in {"1", "true"}:
+        raise RuntimeError(
+            "Gateway execution is disabled; enable it only with configured providers"
+        )
     if not isinstance(event, dict):
         raise ValueError("Gateway tool arguments must be an object")
     custom = context.client_context.custom if context.client_context is not None else {}
@@ -196,27 +243,13 @@ def provision_gateway(
 
     client = boto3.client("bedrock-agentcore-control", region_name=region_name)
     gateway = client.create_gateway(
-        name=gateway_name,
-        description="Quorum reversible execution tools",
-        roleArn=role_arn,
-        protocolType="MCP",
-        authorizerType="AWS_IAM",
-        tags={"Project": "Quorum", "DataClassification": "NoRawPII"},
+        **gateway_create_request(gateway_name=gateway_name, role_arn=role_arn)
     )
     gateway_id = cast(str, gateway["gatewayId"])
     target = client.create_gateway_target(
-        gatewayIdentifier=gateway_id,
-        name=target_name,
-        description="Three reversible Quorum action tools",
-        targetConfiguration={
-            "mcp": {
-                "lambda": {
-                    "lambdaArn": lambda_arn,
-                    "toolSchema": {"inlinePayload": gateway_tool_definitions()},
-                }
-            }
-        },
-        credentialProviderConfigurations=[{"credentialProviderType": "GATEWAY_IAM_ROLE"}],
+        **gateway_target_request(
+            gateway_id=gateway_id, lambda_arn=lambda_arn, target_name=target_name
+        )
     )
     return {
         "gateway_id": gateway_id,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -51,7 +52,10 @@ class GatewayContractTest(unittest.TestCase):
             "questions": [{"title": "Can you attend?", "required": True}],
         }
 
-        with patch("quorum.gateway._get_lambda_service", return_value=service):
+        with (
+            patch.dict(os.environ, {"QUORUM_EXECUTION_ENABLED": "true"}),
+            patch("quorum.gateway._get_lambda_service", return_value=service),
+        ):
             result = gateway_lambda_handler(event, context)
 
         self.assertEqual(result, {"status": "executed"})
@@ -68,8 +72,21 @@ class GatewayContractTest(unittest.TestCase):
         )
 
         with (
+            patch.dict(os.environ, {"QUORUM_EXECUTION_ENABLED": "true"}),
             patch("quorum.gateway._get_lambda_service") as service,
             self.assertRaisesRegex(ValueError, "unsupported Gateway tool"),
+        ):
+            gateway_lambda_handler({}, context)
+
+        service.assert_not_called()
+
+    def test_lambda_execution_is_disabled_by_default(self) -> None:
+        context = SimpleNamespace(client_context=None)
+
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("quorum.gateway._get_lambda_service") as service,
+            self.assertRaisesRegex(RuntimeError, "Gateway execution is disabled"),
         ):
             gateway_lambda_handler({}, context)
 
@@ -93,7 +110,16 @@ class GatewayContractTest(unittest.TestCase):
 
         factory.assert_called_once_with("bedrock-agentcore-control", region_name="us-west-2")
         self.assertEqual(result["gateway_id"], "gw-123")
-        self.assertEqual(client.create_gateway.call_args.kwargs["authorizerType"], "AWS_IAM")
+        gateway = client.create_gateway.call_args.kwargs
+        self.assertEqual(gateway["authorizerType"], "AWS_IAM")
+        self.assertEqual(
+            gateway["tags"],
+            {
+                "Project": "Quorum",
+                "DataClassification": "SyntheticOnly",
+                "CostMode": "ZeroModel",
+            },
+        )
         target = client.create_gateway_target.call_args.kwargs
         self.assertEqual(target["gatewayIdentifier"], "gw-123")
         self.assertEqual(

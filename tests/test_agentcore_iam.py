@@ -10,6 +10,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP_SCRIPT = REPOSITORY_ROOT / "scripts/bootstrap_agentcore_iam.sh"
 DEPLOY_WORKFLOW = REPOSITORY_ROOT / ".github/workflows/deploy-agentcore.yml"
+SERVICES_WORKFLOW = REPOSITORY_ROOT / ".github/workflows/verify-agentcore-services.yml"
 
 
 class AgentCoreIamBootstrapTest(unittest.TestCase):
@@ -80,18 +81,24 @@ fi
                 "ap-northeast-1",
             )
             self.assertEqual(
-                read["Resource"],
-                "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
-                "workload-identity-directory/default/workload-identity/QuorumRuntime-*",
+                set(read["Resource"]),
+                {
+                    "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
+                    "workload-identity-directory/default/workload-identity/QuorumRuntime-*",
+                    "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
+                    "workload-identity-directory/default/workload-identity/QuorumGateway-*",
+                },
             )
             self.assertEqual(
-                delete["Resource"],
-                [
+                set(delete["Resource"]),
+                {
                     "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
                     "workload-identity-directory/default",
                     "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
                     "workload-identity-directory/default/workload-identity/QuorumRuntime-*",
-                ],
+                    "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:"
+                    "workload-identity-directory/default/workload-identity/QuorumGateway-*",
+                },
             )
             self.assertEqual(
                 tag["Resource"],
@@ -107,6 +114,39 @@ fi
                 tag["Condition"]["ForAllValues:StringEquals"]["aws:TagKeys"],
                 ["Project", "DataClassification", "CostMode"],
             )
+            create_services = statements["CreateShortLivedQuorumMemoryAndGateway"]
+            self.assertEqual(
+                set(create_services["Action"]),
+                {"bedrock-agentcore:CreateMemory", "bedrock-agentcore:CreateGateway"},
+            )
+            self.assertEqual(
+                create_services["Condition"]["StringEquals"]["aws:RequestTag/CostMode"],
+                "ZeroModel",
+            )
+            memory = statements["ManageShortLivedQuorumMemory"]
+            self.assertEqual(
+                memory["Resource"],
+                "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:memory/*",
+            )
+            self.assertEqual(
+                memory["Condition"]["StringEquals"]["aws:ResourceTag/Project"],
+                "Quorum",
+            )
+            gateway = statements["ManageShortLivedQuorumGateway"]
+            self.assertIn("bedrock-agentcore:InvokeGateway", gateway["Action"])
+            self.assertEqual(
+                gateway["Condition"]["StringEquals"]["aws:ResourceTag/CostMode"],
+                "ZeroModel",
+            )
+            lambda_statement = statements["ManageShortLivedGatewayLambda"]
+            self.assertEqual(
+                lambda_statement["Resource"],
+                "arn:aws:lambda:ap-northeast-1:123456789012:function:QuorumExecutionTools-*",
+            )
+            self.assertEqual(
+                statements["DeleteShortLivedGatewayLambdaLogs"]["Action"],
+                "logs:DeleteLogGroup",
+            )
 
     def test_deployment_requires_remote_503_evidence_and_always_cleans_up(self) -> None:
         workflow = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
@@ -118,6 +158,15 @@ fi
             "always() && inputs.operation == 'deploy'",
             workflow,
         )
+
+    def test_services_workflow_is_zero_model_zero_event_zero_tool_call_and_cleans_up(self) -> None:
+        workflow = SERVICES_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn('QUORUM_BEDROCK_ENABLED: "false"', workflow)
+        self.assertIn('QUORUM_EXECUTION_ENABLED: "false"', workflow)
+        self.assertIn("verify_agentcore_services.py verify", workflow)
+        self.assertIn("Emergency cleanup after an incomplete verification", workflow)
+        self.assertIn("always() && inputs.operation == 'verify'", workflow)
 
 
 if __name__ == "__main__":

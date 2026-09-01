@@ -1,0 +1,128 @@
+name: Verify AgentCore Memory and Gateway
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Verify or clean one short-lived resource set
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - cleanup
+      run_id:
+        description: Resource suffix used by cleanup; defaults to this workflow run
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: quorum-agentcore-services
+  cancel-in-progress: false
+
+env:
+  AWS_ACCOUNT_ID: "463092208284"
+  AWS_REGION: ap-northeast-1
+  AWS_DEFAULT_REGION: ap-northeast-1
+  AWS_PAGER: ""
+  QUORUM_VERIFY_BUCKET: quorum-agentcore-verify-463092208284-ap-northeast-1
+  QUORUM_VERIFY_KEY: verification/quorum-gateway-lambda.zip
+  QUORUM_BEDROCK_ENABLED: "false"
+  QUORUM_EXECUTION_ENABLED: "false"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the reviewed main branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: arn:aws:iam::463092208284:role/QuorumAgentCoreDeployerRole
+          role-session-name: quorum-agentcore-services
+          aws-region: ap-northeast-1
+          allowed-account-ids: "463092208284"
+          mask-aws-account-id: true
+
+      - name: Confirm scoped AWS identity and verification mode
+        run: |
+          set -euo pipefail
+          caller_arn="$(aws sts get-caller-identity --query Arn --output text)"
+          case "$caller_arn" in
+            arn:aws:sts::*:assumed-role/QuorumAgentCoreDeployerRole/*) ;;
+            *) echo "Unexpected AWS identity: $caller_arn" >&2; exit 1 ;;
+          esac
+          test "$QUORUM_BEDROCK_ENABLED" = "false"
+          test "$QUORUM_EXECUTION_ENABLED" = "false"
+          suffix="${{ inputs.run_id }}"
+          if [[ -z "$suffix" ]]; then suffix="$GITHUB_RUN_ID"; fi
+          echo "VERIFY_RUN_ID=$suffix" >>"$GITHUB_ENV"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.11.15"
+          enable-cache: true
+
+      - name: Build the real Gateway Lambda CodeZip
+        if: inputs.operation == 'verify'
+        run: |
+          set -euo pipefail
+          mkdir -p .agentcore-build/gateway dist
+          uv pip install \
+            -r pyproject.toml \
+            --target .agentcore-build/gateway \
+            --python-version 3.13 \
+            --python-platform aarch64-manylinux2014 \
+            --only-binary :all:
+          python3 scripts/package_gateway_lambda.py \
+            --staging-dir .agentcore-build/gateway \
+            --source-dir src \
+            --output dist/quorum-gateway-lambda.zip
+
+      - name: Verify zero-event Memory and zero-call Gateway
+        if: inputs.operation == 'verify'
+        run: |
+          set -euo pipefail
+          uv run --extra runtime python scripts/verify_agentcore_services.py verify \
+            --region "$AWS_REGION" \
+            --account-id "$AWS_ACCOUNT_ID" \
+            --run-id "$VERIFY_RUN_ID" \
+            --artifact dist/quorum-gateway-lambda.zip \
+            --artifact-bucket "$QUORUM_VERIFY_BUCKET" \
+            --artifact-key "$QUORUM_VERIFY_KEY" \
+            --lambda-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/QuorumGatewayLambdaRole" \
+            --gateway-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/QuorumAgentCoreGatewayRole"
+
+      - name: Clean named resources
+        if: inputs.operation == 'cleanup'
+        run: |
+          set -euo pipefail
+          uv run --extra runtime python scripts/verify_agentcore_services.py cleanup \
+            --region "$AWS_REGION" \
+            --account-id "$AWS_ACCOUNT_ID" \
+            --run-id "$VERIFY_RUN_ID" \
+            --artifact-bucket "$QUORUM_VERIFY_BUCKET" \
+            --artifact-key "$QUORUM_VERIFY_KEY" \
+            --lambda-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/QuorumGatewayLambdaRole" \
+            --gateway-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/QuorumAgentCoreGatewayRole"
+
+      - name: Emergency cleanup after an incomplete verification
+        if: ${{ always() && inputs.operation == 'verify' }}
+        run: |
+          set -euo pipefail
+          uv run --extra runtime python scripts/verify_agentcore_services.py cleanup \
+            --region "$AWS_REGION" \
+            --account-id "$AWS_ACCOUNT_ID" \
+            --run-id "$VERIFY_RUN_ID" \
+            --artifact-bucket "$QUORUM_VERIFY_BUCKET" \
+            --artifact-key "$QUORUM_VERIFY_KEY" \
+            --lambda-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/QuorumGatewayLambdaRole" \
+            --gateway-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/QuorumAgentCoreGatewayRole"

@@ -372,6 +372,22 @@ uv run quorum-provision-gateway \
 This helper creates an `AWS_IAM` MCP Gateway and a `GATEWAY_IAM_ROLE` Lambda target. Packaging the
 Lambda and creating its role are explicit deployment prerequisites, not hidden behavior.
 
+The manual `Verify AgentCore Memory and Gateway` workflow supplies those prerequisites without
+opening a model or side-effect path. It builds an arm64 Python 3.13 CodeZip containing the real
+`quorum.gateway.lambda_handler`, creates an encrypted private S3 bucket with a one-day artifact
+lifecycle, deploys a short-lived Lambda, and verifies that a direct invocation is rejected by the
+default `QUORUM_EXECUTION_ENABLED=false` gate. It then creates an `AWS_IAM` Gateway and the typed
+Lambda target, waits for both resources to report `READY`, and performs only MCP initialization and
+`tools/list`. It never sends `tools/call`.
+
+The same workflow creates a uniquely named Memory with the semantic-fact and summary strategies,
+waits for `ACTIVE`, verifies the returned strategy names, and creates zero Memory events. Therefore
+the verification proves the managed resource and configuration boundary, not long-term extraction
+quality. A `finally` cleanup and an independent `always()` cleanup step remove the target, Gateway,
+Memory, Lambda, Lambda log group, artifact, and bucket. The OIDC role can manage only tagged Quorum
+AgentCore resources, the two named service roles, the prefixed Lambda, and the exact artifact path.
+Both the Lambda execution role and Runtime role explicitly deny Bedrock model invocation.
+
 ## OpenTelemetry
 
 AgentCore Observability uses managed ADOT/OpenTelemetry. `safe_trace_attributes()` enforces a closed

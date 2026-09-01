@@ -205,6 +205,13 @@ requires same-session CloudWatch evidence for HTTP `503`, and stops that session
 workflow then deletes the Runtime and temporary private S3 artifact bucket whether verification
 succeeds or fails.
 
+The separate manual `Verify AgentCore Memory and Gateway` workflow is the next deployment gate. It
+builds the real Gateway Lambda package, creates one short-lived empty Memory and one IAM-authenticated
+Gateway target, verifies Memory strategy metadata and MCP `tools/list`, and cleans every resource.
+The verification contract creates zero Memory events, makes zero Gateway tool calls, keeps
+`QUORUM_BEDROCK_ENABLED=false`, and keeps `QUORUM_EXECUTION_ENABLED=false`. Its implementation is
+checked in and locally tested; no successful cloud run is claimed until a public Actions run exists.
+
 This deployment is evidence for AgentCore Runtime hosting only. The public anonymous experience
 remains GitHub Pages; AgentCore's invoke API is IAM-authenticated. PostgreSQL, AgentCore Memory, and
 Gateway are separate production integrations and are not implied by a Runtime-only deployment.
@@ -289,9 +296,11 @@ Do not reuse a published example key for real data. The key must never be commit
 - The undo transport is implemented and locally tested: `GET` renders a confirmation page and only
   `POST` consumes the token. Its public HTTPS deployment is not yet claimed.
 - The three tools have typed AgentCore Gateway schemas, an IAM MCP client, and a Lambda dispatch
-  adapter. The actual Gateway, Lambda package, IAM role, and end-to-end MCP call are not yet deployed.
+  adapter. The real arm64 Lambda package and short-lived verification workflow are implemented, but
+  no successful Gateway cloud run is claimed yet.
 - AgentCore Memory provisioning and Strands session-manager wiring are implemented and tested against
-  the installed SDK contract; no AWS Memory resource has been created from this machine.
+  the installed SDK contract. The zero-event verification lifecycle is implemented, but no successful
+  Memory cloud run is claimed yet.
 - OpenTelemetry correlation spans and Strands sensitive-attribute redaction are configured in code.
   Runtime logs verify the same-session HTTP `503`; no managed OTEL trace screenshot is claimed yet.
 - The anonymous GitHub Pages replay is public and visibly labels every result synthetic. It uses a

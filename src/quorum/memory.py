@@ -25,6 +25,25 @@ class MemoryConfigurationError(ValueError):
     """Raised when durable AgentCore Memory cannot be configured safely."""
 
 
+def memory_strategy_definitions() -> list[dict[str, object]]:
+    """Return the organization-fact and session-summary namespace contract."""
+
+    return [
+        {
+            "semanticMemoryStrategy": {
+                "name": "QuorumFacts",
+                "namespaceTemplates": ["/facts/{actorId}/"],
+            }
+        },
+        {
+            "summaryMemoryStrategy": {
+                "name": "QuorumSummaries",
+                "namespaceTemplates": ["/summaries/{actorId}/{sessionId}/"],
+            }
+        },
+    ]
+
+
 @dataclass(frozen=True, slots=True)
 class AgentCoreMemorySettings:
     memory_id: str
@@ -56,20 +75,7 @@ def provision_memory(
         name=name,
         description="Redacted organizational facts and session summaries for Quorum",
         event_expiry_days=event_expiry_days,
-        strategies=[
-            {
-                "semanticMemoryStrategy": {
-                    "name": "QuorumFacts",
-                    "namespaceTemplates": ["/facts/{actorId}/"],
-                }
-            },
-            {
-                "summaryMemoryStrategy": {
-                    "name": "QuorumSummaries",
-                    "namespaceTemplates": ["/summaries/{actorId}/{sessionId}/"],
-                }
-            },
-        ],
+        strategies=memory_strategy_definitions(),
     )
 
 

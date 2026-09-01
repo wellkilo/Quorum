@@ -358,7 +358,65 @@ When an operator deliberately enables a bounded run, `QUORUM_BEDROCK_MAX_TOKENS`
 response to 64–1024 output tokens and defaults to 384. This application guard is not an AWS billing
 hard limit.
 
-## 11. Human interrupt resume
+## 11. AgentCore Memory verification contract
+
+The manual `Verify AgentCore Memory and Gateway` workflow creates a uniquely named, short-lived
+Memory resource with the following control-plane request. It waits for `ACTIVE`, verifies the two
+strategy names, creates zero events, and deletes the resource before the job ends.
+
+```json
+{
+  "name": "QuorumMemory<workflow-run-id>",
+  "description": "Short-lived Quorum strategy verification with zero events",
+  "eventExpiryDuration": 7,
+  "memoryStrategies": [
+    {"semanticMemoryStrategy": {"name": "QuorumFacts", "namespaceTemplates": ["/facts/{actorId}/"]}},
+    {"summaryMemoryStrategy": {"name": "QuorumSummaries", "namespaceTemplates": ["/summaries/{actorId}/{sessionId}/"]}}
+  ],
+  "tags": {
+    "Project": "Quorum",
+    "DataClassification": "SyntheticOnly",
+    "CostMode": "ZeroModel"
+  }
+}
+```
+
+This proves the managed Memory resource and namespace contract only. It does not claim a model-backed
+memory extraction result, because the cost-safe verification writes zero events.
+
+## 12. AgentCore Gateway verification contract
+
+The same workflow creates an IAM-authenticated MCP Gateway and a Lambda target. The target contains
+the exact schemas returned by `gateway_tool_definitions()`:
+
+```json
+{
+  "gatewayIdentifier": "<gateway-id>",
+  "name": "quorum-execution",
+  "targetConfiguration": {
+    "mcp": {
+      "lambda": {
+        "lambdaArn": "<short-lived-lambda-arn>",
+        "toolSchema": {
+          "inlinePayload": [
+            {"name": "calendar_create_tentative_event", "inputSchema": {}},
+            {"name": "gmail_create_draft", "inputSchema": {}},
+            {"name": "forms_create_response_request", "inputSchema": {}}
+          ]
+        }
+      }
+    }
+  },
+  "credentialProviderConfigurations": [{"credentialProviderType": "GATEWAY_IAM_ROLE"}]
+}
+```
+
+The verifier waits for the Gateway and target to reach `READY`, uses a SigV4-authenticated MCP client
+to run initialization and `tools/list`, and requires exactly the three names above. It deliberately
+runs zero `tools/call` requests. The Lambda also defaults `QUORUM_EXECUTION_ENABLED=false`; an
+attempted invocation fails before database, Slack, or Google clients are initialized.
+
+## 13. Human interrupt resume
 
 The Strands interrupt response is sent back to the same logical session.
 
@@ -377,7 +435,7 @@ The Strands interrupt response is sent back to the same logical session.
 }
 ```
 
-## 12. Undo action
+## 14. Undo action
 
 `GET` is deliberately non-mutating so Slack link previews and security scanners cannot consume a
 single-use token:
@@ -412,7 +470,7 @@ is excluded from logs. Only its SHA-256 digest is persisted. It is atomically co
 provider delete call; tampered, expired, or reused tokens fail closed. Provider undo failure remains
 auditable as `undo_failed` and does not silently restore the token.
 
-## 13. Replay API for the public sandbox
+## 15. Replay API for the public sandbox
 
 `POST /demo/replays/synthetic-week`
 
@@ -438,7 +496,7 @@ The public GitHub Pages build cannot expose a Python API. It reads the versioned
 executable test compares every non-ID field with `ReplayStore`; the page explicitly states that this
 is static synthetic evidence and not a deployed AgentCore result.
 
-## 14. Error envelope
+## 16. Error envelope
 
 ```json
 {

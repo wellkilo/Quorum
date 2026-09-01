@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-uv sync --extra dev --extra postgres --locked
+uv sync --extra dev --extra postgres --extra runtime --locked
 uv run ruff format --check src migrations tests scripts
 uv run ruff check src migrations tests scripts
 uv run mypy src/quorum
