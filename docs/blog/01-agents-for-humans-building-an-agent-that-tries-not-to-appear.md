@@ -76,6 +76,14 @@ strategies, and an IAM-authenticated AgentCore Gateway reached `READY` and retur
 three typed tools through MCP `tools/list`. The run created zero Memory events, made zero Gateway
 tool calls, and deleted every temporary resource.
 
+The Runtime workflow also emitted and retrieved exactly one managed
+`quorum.observability.probe` span from a strictly synthetic request. Its forbidden-content scan and
+model, Memory, Gateway, and external-side-effect counters were all zero. Transaction Search was held
+at zero-percent indexing for the evidence window, restored to its prior destination, and the
+temporary customer-managed resources were removed. The public
+[evidence record](../evidence/agentcore-observability-2026-09-01.md) preserves the exact
+boundary: this proves managed span transport and privacy controls, not a production trace.
+
 ## Quality engineering is part of the product
 
 The repository includes a 50-case synthetic gold set for commitment extraction. It covers creates,
@@ -103,6 +111,7 @@ the public architecture and video contracts.
 - Verified short-lived AgentCore Runtime hosting with zero model calls and automatic cleanup
 - Verified short-lived AgentCore Memory and Gateway lifecycles with zero events, zero tool calls,
   and automatic cleanup
+- Verified one managed synthetic OpenTelemetry span with zero downstream calls and automatic cleanup
 - No claim yet of model-backed Memory extraction, Gateway execution, real Slack or Google Workspace
   calls, a Bedrock model score, or real-world impact
 

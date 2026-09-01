@@ -44,11 +44,11 @@ timeout, autonomy, or interruption spend. Strands Swarm is used only for bounded
 Before any tool call, a native hook interrupt re-reads the persisted policy and fails closed.
 
 Two short-lived GitHub OIDC runs verified the AWS boundaries with both gates closed. AgentCore
-Runtime reached READY and returned HTTP 503 at the cost gate. AgentCore Memory reached ACTIVE with
-the fact and summary strategies. AgentCore Gateway reached READY and listed exactly three IAM MCP
-tools. The runs created zero Memory events, made zero Gateway tool calls, and cleaned every temporary
-resource. PostgreSQL stays the authority for business facts; PII-safe OpenTelemetry records only
-allow-listed correlation fields.
+Runtime emitted one managed synthetic span, then returned HTTP 503 at the cost gate. AgentCore Memory
+reached ACTIVE, and AgentCore Gateway reached READY with exactly three IAM MCP tools. The probe
+reported zero model, Memory, Gateway, or external side-effect calls, and the workflows cleaned their
+temporary resources. PostgreSQL stays the authority for business facts; PII-safe OpenTelemetry
+records only allow-listed correlation fields.
 
 ## 3:20–4:15 — Numbers first, claims bounded
 

@@ -90,7 +90,10 @@ and dispatches them through a Lambda adapter to the same execution service used 
 
 OpenTelemetry follows the same boundary-first design. Quorum allow-lists a small set of correlation
 attributes and enables Strands sensitive-attribute redaction. Prompts, raw messages, tool arguments,
-and provider payloads are not trace attributes.
+and provider payloads are not trace attributes. A short-lived Runtime run retrieved exactly one
+managed synthetic probe span, matched its returned identifiers, and reported zero model, Memory,
+Gateway, or external side-effect calls. The [evidence record](../evidence/agentcore-observability-2026-09-01.md)
+documents the successful run and cleanup without presenting it as a production trace.
 
 ## What is implemented, and what is not claimed
 
@@ -103,8 +106,8 @@ configured strategies and an IAM-authenticated Gateway to `READY`, verified the 
 and then cleaned every resource. It created zero Memory events and made zero Gateway tool calls. Real
 Slack and Google Workspace calls are not claimed without credentials.
 
-That distinction is encoded in the architecture image: Runtime, Memory, and Gateway are marked as
-short-lived verified lifecycles, while the managed-trace boundary remains unevidenced. The public
+That distinction is encoded in the architecture image: Runtime, Memory, Gateway, and the single
+synthetic managed span are marked as short-lived verified evidence followed by cleanup. The public
 demo at <https://wellkilo.github.io/Quorum/> is a static, visibly synthetic replay, not a disguised
 Runtime. The source, tests, and diagram are available at <https://github.com/wellkilo/Quorum>.
 

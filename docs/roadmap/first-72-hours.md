@@ -44,7 +44,7 @@ The objective is to produce judge-visible evidence quickly while preserving the 
 - [ ] Post exactly one group receipt with a working undo action.
 - [ ] Ask exactly one private question with a timeout and explicit default.
 - [ ] Generate one weekly one-screen summary from synthetic data.
-- [ ] Capture OTEL traces without raw message content.
+- [x] Capture one managed synthetic OTEL span without raw message content or downstream calls.
 - [ ] Record a 30-second evidence clip for the eventual demo.
 - [ ] Review and publish the first Builder Center post.
 

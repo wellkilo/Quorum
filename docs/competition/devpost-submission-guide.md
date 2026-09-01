@@ -32,6 +32,7 @@ Create the draft early and keep these fields aligned with the public repository:
 - [x] Architecture diagram matches the verified short-lived AgentCore paths and cleanup boundary.
 - [x] Short-lived AgentCore Runtime deployment evidence is public and automatic cleanup is verified.
 - [x] Short-lived AgentCore Memory and Gateway evidence is public, zero-call, and cleaned up.
+- [x] One managed synthetic OpenTelemetry span is publicly evidenced with zero downstream calls and cleanup.
 - [ ] Video is public, five minutes or shorter, and demonstrates the working project.
 - [x] Public demo works without an invitation, private account, or payment.
 - [ ] Demo remains online through the end of judging.

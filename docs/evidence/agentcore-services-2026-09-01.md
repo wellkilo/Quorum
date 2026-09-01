@@ -43,7 +43,9 @@ AgentCore Memory with the intended strategy namespaces, create an IAM-authentica
 Gateway and Lambda target, discover exactly the three typed MCP tools through SigV4, enforce the
 execution-disabled gate, and clean up every temporary resource.
 
-It does not prove model-backed Memory extraction or retrieval quality, Gateway tool execution, a
-Google Workspace or Slack side effect, a continuously hosted backend, managed OpenTelemetry trace
-capture, a live PostgreSQL integration, or real-world community impact. The public anonymous demo
+This run itself does not prove model-backed Memory extraction or retrieval quality, Gateway tool
+execution, a Google Workspace or Slack side effect, a continuously hosted backend, a live PostgreSQL
+integration, or real-world community impact. Managed OpenTelemetry transport was verified
+independently with a separate synthetic zero-call probe and is documented in the
+[observability evidence record](agentcore-observability-2026-09-01.md). The public anonymous demo
 remains the visibly synthetic GitHub Pages replay.

@@ -35,12 +35,13 @@ class ArchitectureAssetTest(unittest.TestCase):
             "AGENTCORE MEMORY",
             "AGENTCORE RUNTIME",
             "PII-SAFE OPENTELEMETRY",
-            "RUNTIME · MEMORY · GATEWAY VERIFIED + CLEANED",
+            "RUNTIME · MEMORY · GATEWAY · TRACE VERIFIED",
             "READY · tools/list · cleaned",
             "ACTIVE · 2 strategies · cleaned",
             "short-lived deploy verified · cleaned",
             "SHORT-LIVED AWS VERIFIED + CLEANED",
-            "MANAGED TRACE UNEVIDENCED",
+            "1 synthetic span · zero calls · cleaned",
+            "MANAGED TRACE · SYNTHETIC PROBE · CLEANED",
             "GITHUB PAGES STATIC SYNTHETIC REPLAY",
         ):
             self.assertIn(label, content)
@@ -62,6 +63,10 @@ class ArchitectureAssetTest(unittest.TestCase):
         self.assertIn(
             "Runtime, Memory, and Gateway\n"
             "nodes record separate verified short-lived AWS lifecycles followed by cleanup",
+            readme,
+        )
+        self.assertIn(
+            "OpenTelemetry\nnode records one synthetic zero-call managed span followed by cleanup",
             readme,
         )
 

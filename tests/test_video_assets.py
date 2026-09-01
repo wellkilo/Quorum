@@ -51,6 +51,8 @@ class VideoAssetContractTest(unittest.TestCase):
             "AgentCore Gateway",
             "PostgreSQL",
             "PII-safe OpenTelemetry",
+            "one managed synthetic span",
+            "zero model, Memory, Gateway, or external side-effect calls",
             "50-case synthetic gold set",
             "not measured community impact",
             "actual AWS Builder ID",
@@ -59,10 +61,13 @@ class VideoAssetContractTest(unittest.TestCase):
 
     def test_storyboard_requires_synthetic_labels_and_rejects_fake_evidence(self) -> None:
         content = (VIDEO_DIRECTORY / "storyboard.md").read_text(encoding="utf-8")
+        normalized_content = " ".join(content.split())
 
         self.assertIn("Public static replay · synthetic data only", content)
         self.assertIn("No consented pilot quote yet — no quote fabricated", content)
         self.assertIn("Do not simulate a cloud", content)
+        self.assertIn("one synthetic zero-call managed span", normalized_content)
+        self.assertIn("real GitHub Actions output", normalized_content)
         self.assertIn("actual AWS Builder ID", content)
 
 

@@ -432,6 +432,15 @@ verification created it. AWS exposes service-linked channel deletion only to the
 the account-level Application Signals channel can remain as a zero-data control-plane prerequisite;
 the workflow reports that boundary instead of claiming that a customer `DeleteChannel` call removed it.
 
+The complete zero-model probe succeeded in GitHub Actions run
+[`33507672504`](https://github.com/wellkilo/Quorum/actions/runs/33507672504): exactly one
+`quorum.observability.probe` managed span matched the returned trace and span identifiers, the
+forbidden-content scan and all downstream-call counters were zero, the production model path still
+returned HTTP `503`, and the temporary customer-managed resources were removed. See the
+[managed observability evidence record](docs/evidence/agentcore-observability-2026-09-01.md). This
+proves the managed span transport and privacy boundary for a synthetic probe; it does not prove a
+production trace, a model-backed workflow, or any external side effect.
+
 ## Slack Web API methods
 
 The outbound adapter implements these Slack Web API methods:

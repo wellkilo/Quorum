@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
   <title id="title">Quorum architecture</title>
-  <desc id="description">Quorum receives Slack events or Runtime invocations, follows a five-node Strands Graph, applies a native hook interrupt before reversible tools, and separates PostgreSQL business facts from Strands sessions, AgentCore Memory, and PII-safe OpenTelemetry. AgentCore Runtime, Memory, and Gateway have verified short-lived AWS lifecycles followed by cleanup; the public replay remains a separate static synthetic surface.</desc>
+  <desc id="description">Quorum receives Slack events or Runtime invocations, follows a five-node Strands Graph, applies a native hook interrupt before reversible tools, and separates PostgreSQL business facts from Strands sessions, AgentCore Memory, and PII-safe OpenTelemetry. AgentCore Runtime, Memory, Gateway, and one synthetic managed trace have verified short-lived AWS evidence followed by cleanup; the public replay remains a separate static synthetic surface.</desc>
   <defs>
     <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
       <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#19303c" stroke-width="1" opacity="0.42"/>
@@ -50,7 +50,7 @@
   <rect x="1184" y="47" width="352" height="76" rx="8" fill="#10271f" stroke="#48d9a7" stroke-width="1.5"/>
   <circle cx="1211" cy="72" r="5" fill="#81f1c8"/>
   <text x="1228" y="77" class="mono" font-size="12" font-weight="700" fill="#81f1c8">AWS EVIDENCE BOUNDARY</text>
-  <text x="1211" y="103" class="mono" font-size="10" fill="#a8b4b4">RUNTIME · MEMORY · GATEWAY VERIFIED + CLEANED</text>
+  <text x="1211" y="103" class="mono" font-size="10" fill="#a8b4b4">RUNTIME · MEMORY · GATEWAY · TRACE VERIFIED</text>
 
   <text x="64" y="203" class="mono section-label">01 · DETERMINISTIC STRANDS GRAPH</text>
   <rect x="48" y="220" width="1504" height="250" rx="12" fill="#091722" stroke="#29404b"/>
@@ -168,17 +168,17 @@
   <text x="1004" y="776" class="display small-title">Session identity + hosting</text>
   <text x="1004" y="799" class="mono small-copy">short-lived deploy verified · cleaned</text>
 
-  <rect x="1266" y="716" width="286" height="106" rx="10" class="aws-node"/>
-  <text x="1288" y="747" class="mono" font-size="10" font-weight="700" fill="#ffcfaa">PII-SAFE OPENTELEMETRY</text>
+  <rect x="1266" y="716" width="286" height="106" rx="10" class="aws-verified-node"/>
+  <text x="1288" y="747" class="mono" font-size="10" font-weight="700" fill="#81f1c8">PII-SAFE OPENTELEMETRY</text>
   <text x="1288" y="776" class="display small-title">Allow-listed correlation spans</text>
-  <text x="1288" y="799" class="mono small-copy">no prompts · no tool payloads</text>
+  <text x="1288" y="799" class="mono small-copy">1 synthetic span · zero calls · cleaned</text>
 
   <line x1="48" y1="855" x2="1552" y2="855" stroke="#29404b"/>
   <circle cx="64" cy="875" r="5" fill="#81f1c8"/>
   <text x="78" y="879" class="mono" font-size="10" fill="#a8b4b4">SOLID · IMPLEMENTED AND TESTED LOCALLY</text>
   <line x1="371" y1="875" x2="397" y2="875" stroke="#48d9a7" stroke-width="1.5"/>
   <text x="409" y="879" class="mono" font-size="10" fill="#a8b4b4">GREEN · SHORT-LIVED AWS VERIFIED + CLEANED</text>
-  <line x1="740" y1="875" x2="766" y2="875" stroke="#ffad72" stroke-width="1.5" stroke-dasharray="6 4"/>
-  <text x="778" y="879" class="mono" font-size="10" fill="#a8b4b4">DASHED · MANAGED TRACE UNEVIDENCED</text>
+  <line x1="740" y1="875" x2="766" y2="875" stroke="#48d9a7" stroke-width="1.5"/>
+  <text x="778" y="879" class="mono" font-size="10" fill="#a8b4b4">MANAGED TRACE · SYNTHETIC PROBE · CLEANED</text>
   <text x="1536" y="879" text-anchor="end" class="mono" font-size="10" fill="#81f1c8">PUBLIC EVIDENCE · GITHUB PAGES STATIC SYNTHETIC REPLAY</text>
 </svg>

@@ -89,7 +89,7 @@ Quorum's current local suite covers far more than extraction examples. It tests:
 - Slack signature replay protection and PII redaction before Graph input;
 - the architecture image, 4:50 caption track, and public evidence language.
 
-At the time of writing, 134 local tests pass in the locked project environment. This is a local test
+At the time of writing, 176 local tests pass in the locked project environment. This is a local test
 result, not a cloud deployment claim. PostgreSQL DDL is compiled and checked, while integration tests
 currently use SQLite; real PostgreSQL network evidence will be published only after a dedicated
 endpoint exists. Provider SDK calls are tested at their network boundaries, not presented as live
@@ -109,8 +109,11 @@ uv run python -m unittest discover -s tests -v
 ```
 
 The public synthetic replay is at <https://wellkilo.github.io/Quorum/> and the source is at
-<https://github.com/wellkilo/Quorum>. A consented real-world pilot and an online Bedrock evaluation
-remain future evidence gates, not placeholders to be filled with assumptions.
+<https://github.com/wellkilo/Quorum>. The same evidence discipline covers the
+[managed synthetic OpenTelemetry probe](../evidence/agentcore-observability-2026-09-01.md): its
+forbidden-content scan and all downstream-call counters were zero. A consented real-world pilot and
+an online Bedrock evaluation remain future evidence gates, not placeholders to be filled with
+assumptions.
 
 For an agent whose goal is to interrupt less, correctness includes knowing when not to write, not to
 ask, not to retry, and not to claim.

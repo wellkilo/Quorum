@@ -19,6 +19,28 @@ from scripts.manage_agentcore_observability import (
 
 
 class AgentCoreObservabilityTest(unittest.TestCase):
+    def test_public_evidence_records_successful_zero_call_run(self) -> None:
+        repository_root = Path(__file__).parents[1]
+        evidence = (
+            repository_root / "docs/evidence/agentcore-observability-2026-09-01.md"
+        ).read_text(encoding="utf-8")
+
+        for claim in (
+            "https://github.com/wellkilo/Quorum/actions/runs/33507672504",
+            "7ab510f8d56ce34d03602f1ed02d6cb9680d05c1",
+            "quorum.observability.probe",
+            "data_classification=synthetic",
+            "forbidden_content_matches=0",
+            "model_calls=0",
+            "memory_events=0",
+            "gateway_tool_calls=0",
+            "external_side_effect_calls=0",
+            "transaction_search_destination_restored=XRay",
+            "temporary_application_signals_role_removed=true",
+            "does **not** claim",
+        ):
+            self.assertIn(claim, evidence)
+
     def test_application_signals_channel_scan_is_paginated_and_scoped(self) -> None:
         cloudtrail = MagicMock()
         application_signals_channel = (

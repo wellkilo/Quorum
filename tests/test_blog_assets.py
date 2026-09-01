@@ -7,6 +7,7 @@ REPOSITORY_ROOT = Path(__file__).parents[1]
 BLOG_DIRECTORY = REPOSITORY_ROOT / "docs" / "blog"
 DEMO_URL = "https://wellkilo.github.io/Quorum/"
 REPOSITORY_URL = "https://github.com/wellkilo/Quorum"
+OBSERVABILITY_EVIDENCE = "agentcore-observability-2026-09-01.md"
 
 
 class BuilderBlogContractTest(unittest.TestCase):
@@ -29,9 +30,18 @@ class BuilderBlogContractTest(unittest.TestCase):
 
     def test_publication_manifest_keeps_urls_pending_until_manually_verified(self) -> None:
         content = (BLOG_DIRECTORY / "README.md").read_text(encoding="utf-8")
+        normalized_content = " ".join(content.split())
 
         self.assertEqual(content.count("Pending publication | No"), 3)
         self.assertIn("Do not mark", content)
+        self.assertIn("one synthetic zero-call probe", normalized_content)
+
+    def test_every_draft_preserves_observability_claim_boundary(self) -> None:
+        for draft in sorted(BLOG_DIRECTORY.glob("[0-9][0-9]-*.md")):
+            content = draft.read_text(encoding="utf-8")
+
+            self.assertIn(OBSERVABILITY_EVIDENCE, content, draft.name)
+            self.assertIn("zero", content.lower(), draft.name)
 
 
 if __name__ == "__main__":

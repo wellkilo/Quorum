@@ -5,7 +5,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Hackathon](https://img.shields.io/badge/AWS-Agents%20for%20Humans-ff9900)](https://agentsforhumans.devpost.com/)
 [![Track](https://img.shields.io/badge/Track-Good%20Neighbor%20Agents-2f855a)](https://agentsforhumans.devpost.com/)
-[![AgentCore Runtime evidence](https://github.com/wellkilo/Quorum/actions/workflows/deploy-agentcore.yml/badge.svg)](https://github.com/wellkilo/Quorum/actions/runs/33393010402)
+[![AgentCore Runtime and managed trace evidence](https://github.com/wellkilo/Quorum/actions/workflows/deploy-agentcore.yml/badge.svg)](https://github.com/wellkilo/Quorum/actions/runs/33507672504)
 [![AgentCore Memory and Gateway evidence](https://github.com/wellkilo/Quorum/actions/workflows/verify-agentcore-services.yml/badge.svg)](https://github.com/wellkilo/Quorum/actions/runs/33469765620)
 
 Quorum coordinates the routine decisions that exhaust small communities. It listens where the group already talks, turns commitments into an evidence-linked ledger, acts autonomously only within earned boundaries, and asks the minimum number of people required for a safe decision.
@@ -14,7 +14,7 @@ Its product promise is deliberately unusual: **the best coordination agent is th
 
 ## Status
 
-Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, all three Slack interaction adapters, transactional SQLite/PostgreSQL persistence, AgentCore Runtime/Memory/Gateway adapters, PII-safe OpenTelemetry spans, signed single-use undo, an anonymous synthetic replay UI, Alembic migrations, and a 50-case synthetic evaluation suite. GitHub OIDC workflows have verified short-lived AgentCore Runtime, Memory, and Gateway lifecycles in AWS, with model and execution gates closed and all temporary resources removed afterward. Live Slack, Google Workspace, model-backed Memory extraction, Gateway tool execution, and a continuously hosted AgentCore backend are not claimed.
+Quorum is an active entry in the 2026 AWS Agents for Humans Hackathon. The current executable slice includes a typed commitment ledger, the complete five-node Strands Graph structure, deterministic risk and routing, a Strands-native hook interrupt autonomy gate, reversible Google Calendar, Gmail Draft, and Google Forms tools, all three Slack interaction adapters, transactional SQLite/PostgreSQL persistence, AgentCore Runtime/Memory/Gateway adapters, PII-safe OpenTelemetry spans, signed single-use undo, an anonymous synthetic replay UI, Alembic migrations, and a 50-case synthetic evaluation suite. GitHub OIDC workflows have verified short-lived AgentCore Runtime, Memory, and Gateway lifecycles in AWS, plus one managed synthetic OpenTelemetry span, with model and execution gates closed and all temporary customer-managed resources removed afterward. Live Slack, Google Workspace, model-backed Memory extraction, Gateway tool execution, and a continuously hosted AgentCore backend are not claimed.
 
 No real organization data, user quote, impact result, continuously hosted Runtime, or Bedrock model score is claimed at this stage. Every current evaluation case is labeled `synthetic` in its metadata.
 
@@ -118,9 +118,10 @@ Download the [1600x900 PNG](assets/quorum-architecture.png) for slides or video 
 [SVG source](assets/quorum-architecture.svg) for lossless publication.
 
 Solid components are implemented and tested locally. The AgentCore Runtime, Memory, and Gateway
-nodes record separate verified short-lived AWS lifecycles followed by cleanup; they do not imply a
-continuously hosted backend. The public GitHub Pages site is a separate static synthetic evidence
-surface, not the Runtime shown in the hosted path.
+nodes record separate verified short-lived AWS lifecycles followed by cleanup. The OpenTelemetry
+node records one synthetic zero-call managed span followed by cleanup. None of these imply a
+continuously hosted backend or production traffic. The public GitHub Pages site is a separate static
+synthetic evidence surface, not the Runtime shown in the hosted path.
 
 The deterministic target path is a Strands Graph:
 
@@ -196,6 +197,15 @@ made zero Gateway `tools/call` requests, invoked no Bedrock model, and removed t
 target, Gateway, Lambda, log group, artifact, and bucket. See the
 [Memory and Gateway evidence record](docs/evidence/agentcore-services-2026-09-01.md) and the
 [successful workflow](https://github.com/wellkilo/Quorum/actions/runs/33469765620).
+
+Also on September 1, a zero-model Runtime workflow emitted and retrieved exactly one managed
+`quorum.observability.probe` span. It matched the Runtime response identifiers, contained no
+forbidden content, reported zero model calls, Memory events, Gateway tool calls, or external side
+effects, and retained the expected HTTP `503` cost gate. Transaction Search was temporarily routed
+to CloudWatch Logs at 0% indexing, restored to its prior X-Ray destination, and the temporary
+policy, log groups, service-linked role, Runtime, and artifact bucket were removed. See the
+[managed observability evidence record](docs/evidence/agentcore-observability-2026-09-01.md) and the
+[successful workflow](https://github.com/wellkilo/Quorum/actions/runs/33507672504).
 
 The production model path is disabled by default. Deployment, health checks, and the synthetic demo
 cannot invoke Bedrock until an operator deliberately opens the cost gate for a bounded run:
@@ -332,7 +342,9 @@ Do not reuse a published example key for real data. The key must never be commit
   the installed SDK contract. A short-lived Memory reached `ACTIVE` with both configured strategies,
   but the zero-event run does not demonstrate model-backed extraction or retrieval quality.
 - OpenTelemetry correlation spans and Strands sensitive-attribute redaction are configured in code.
-  Runtime logs verify the same-session HTTP `503`; no managed OTEL trace screenshot is claimed yet.
+  A short-lived synthetic Runtime probe produced exactly one validated managed span with no
+  forbidden content or downstream service calls. This is not a production trace or model-quality
+  result.
 - The anonymous GitHub Pages replay is public and visibly labels every result synthetic. It uses a
   versioned static evidence fixture and is not presented as the IAM-authenticated AgentCore Runtime.
 
@@ -362,7 +374,7 @@ This repository was created during the hackathon submission period. As of the in
 - [x] Public anonymous synthetic replay demo
 - [x] Short-lived AgentCore Runtime deployment, HTTP 503 cost-gate evidence, and automatic cleanup
 - [x] Short-lived AgentCore Memory and Gateway lifecycle evidence with zero events/tool calls and cleanup
-- [ ] Managed AgentCore Observability trace evidence
+- [x] Managed AgentCore Observability evidence from one synthetic zero-call span, followed by cleanup
 - [x] Public anonymous replay URL
 - [x] Honest empty-baseline evaluation report
 - [ ] Consented real-organization comparison and quotation
