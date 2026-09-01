@@ -293,22 +293,18 @@ def restore(args: argparse.Namespace) -> None:
             else:
                 task_id = task["DeletionTaskId"]
                 for _attempt in range(30):
+                    deletion: Mapping[str, Any] | None = None
                     try:
                         deletion = iam.get_service_linked_role_deletion_status(
                             DeletionTaskId=task_id
                         )
                     except Exception as exc:
-                        if _is_missing_resource_error(exc) and not _role_exists(
-                            iam, APPLICATION_SIGNALS_ROLE
-                        ):
-                            role_removed = True
-                            break
-                        raise
-                    status = deletion["Status"]
-                    if status == "SUCCEEDED":
+                        if not _is_missing_resource_error(exc):
+                            raise
+                    if not _role_exists(iam, APPLICATION_SIGNALS_ROLE):
                         role_removed = True
                         break
-                    if status == "FAILED":
+                    if deletion is not None and deletion["Status"] == "FAILED":
                         reason = deletion.get("Reason", "unspecified")
                         errors.append(
                             f"Application Signals service-linked role cleanup failed: {reason}"

@@ -146,6 +146,10 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                 {"Error": {"Code": "NoSuchEntity", "Message": "not found"}},
                 "GetRole",
             ),
+            ClientError(
+                {"Error": {"Code": "NoSuchEntity", "Message": "not found"}},
+                "GetRole",
+            ),
         ]
         iam.delete_service_linked_role.return_value = {"DeletionTaskId": "task-123"}
         iam.get_service_linked_role_deletion_status.return_value = {"Status": "SUCCEEDED"}
@@ -353,8 +357,10 @@ class AgentCoreObservabilityTest(unittest.TestCase):
             {"Error": {"Code": "NoSuchEntityException", "Message": "gone"}},
             "GetRole",
         )
+        role_present = {"Role": {"RoleName": "AWSServiceRoleForCloudWatchApplicationSignals"}}
         iam.get_role.side_effect = [
-            {"Role": {"RoleName": "AWSServiceRoleForCloudWatchApplicationSignals"}},
+            role_present,
+            role_present,
             role_missing,
             role_missing,
         ]
@@ -396,9 +402,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                     )
                 )
 
-        iam.get_service_linked_role_deletion_status.assert_called_once_with(
-            DeletionTaskId="task-123"
-        )
+        self.assertEqual(iam.get_service_linked_role_deletion_status.call_count, 2)
 
     def test_restore_continues_independent_cleanup_after_log_group_failure(self) -> None:
         logs = MagicMock()
@@ -420,6 +424,10 @@ class AgentCoreObservabilityTest(unittest.TestCase):
         iam = MagicMock()
         iam.get_role.side_effect = [
             {"Role": {"RoleName": "AWSServiceRoleForCloudWatchApplicationSignals"}},
+            ClientError(
+                {"Error": {"Code": "NoSuchEntity", "Message": "not found"}},
+                "GetRole",
+            ),
             ClientError(
                 {"Error": {"Code": "NoSuchEntity", "Message": "not found"}},
                 "GetRole",
