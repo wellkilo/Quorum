@@ -84,6 +84,14 @@ def _role_exists(iam: Any, name: str) -> bool:
         raise
 
 
+def _is_missing_resource_error(exc: Exception) -> bool:
+    return isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code") in {
+        "NoSuchEntity",
+        "NoSuchEntityException",
+        "ResourceNotFoundException",
+    }
+
+
 def _application_signals_channel_arns(cloudtrail: Any) -> set[str]:
     matches: set[str] = set()
     next_token: str | None = None
@@ -231,7 +239,8 @@ def restore(args: argparse.Namespace) -> None:
         try:
             logs.delete_resource_policy(policyName=state["policy_name"])
         except Exception as exc:  # cleanup must report, not hide, incomplete rollback
-            errors.append(f"policy deletion failed: {type(exc).__name__}")
+            if not _is_missing_resource_error(exc):
+                errors.append(f"policy deletion failed: {type(exc).__name__}")
     try:
         current_rules = xray.get_indexing_rules().get("IndexingRules", [])
         current_default = next(item for item in current_rules if item.get("Name") == "Default")
@@ -274,23 +283,30 @@ def restore(args: argparse.Namespace) -> None:
     try:
         role_created = state.get("application_signals_role_created", False)
         if destination_restored and role_created and _role_exists(iam, APPLICATION_SIGNALS_ROLE):
-            task = iam.delete_service_linked_role(RoleName=APPLICATION_SIGNALS_ROLE)
-            task_id = task["DeletionTaskId"]
-            for _attempt in range(30):
-                deletion = iam.get_service_linked_role_deletion_status(DeletionTaskId=task_id)
-                status = deletion["Status"]
-                if status == "SUCCEEDED":
+            try:
+                task = iam.delete_service_linked_role(RoleName=APPLICATION_SIGNALS_ROLE)
+            except Exception as exc:
+                if _is_missing_resource_error(exc):
                     role_removed = True
-                    break
-                if status == "FAILED":
-                    reason = deletion.get("Reason", "unspecified")
-                    errors.append(
-                        f"Application Signals service-linked role cleanup failed: {reason}"
-                    )
-                    break
-                time.sleep(2)
+                else:
+                    raise
             else:
-                errors.append("Application Signals service-linked role cleanup timed out")
+                task_id = task["DeletionTaskId"]
+                for _attempt in range(30):
+                    deletion = iam.get_service_linked_role_deletion_status(DeletionTaskId=task_id)
+                    status = deletion["Status"]
+                    if status == "SUCCEEDED":
+                        role_removed = True
+                        break
+                    if status == "FAILED":
+                        reason = deletion.get("Reason", "unspecified")
+                        errors.append(
+                            f"Application Signals service-linked role cleanup failed: {reason}"
+                        )
+                        break
+                    time.sleep(2)
+                else:
+                    errors.append("Application Signals service-linked role cleanup timed out")
         if destination_restored and role_created and _role_exists(iam, APPLICATION_SIGNALS_ROLE):
             errors.append("temporary Application Signals role still exists after cleanup")
     except Exception as exc:
