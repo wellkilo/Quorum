@@ -126,17 +126,21 @@ fi
             memory = statements["ManageShortLivedQuorumMemory"]
             self.assertEqual(
                 memory["Resource"],
-                "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:memory/*",
+                "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:memory/QuorumMemory*",
             )
             self.assertEqual(
-                memory["Condition"]["StringEquals"]["aws:ResourceTag/Project"],
-                "Quorum",
+                memory["Condition"]["StringEquals"],
+                {"aws:RequestedRegion": "ap-northeast-1"},
             )
             gateway = statements["ManageShortLivedQuorumGateway"]
             self.assertIn("bedrock-agentcore:InvokeGateway", gateway["Action"])
             self.assertEqual(
-                gateway["Condition"]["StringEquals"]["aws:ResourceTag/CostMode"],
-                "ZeroModel",
+                gateway["Resource"],
+                "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:gateway/quorumgateway-*",
+            )
+            self.assertEqual(
+                gateway["Condition"]["StringEquals"],
+                {"aws:RequestedRegion": "ap-northeast-1"},
             )
             lambda_statement = statements["ManageShortLivedGatewayLambda"]
             self.assertEqual(

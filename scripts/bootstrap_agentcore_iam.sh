@@ -208,13 +208,8 @@ jq -n \
         Sid: "ManageShortLivedQuorumMemory",
         Effect: "Allow",
         Action: ["bedrock-agentcore:GetMemory", "bedrock-agentcore:DeleteMemory"],
-        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":memory/*"),
-        Condition: {StringEquals: {
-          "aws:RequestedRegion": $region,
-          "aws:ResourceTag/Project": "Quorum",
-          "aws:ResourceTag/DataClassification": "SyntheticOnly",
-          "aws:ResourceTag/CostMode": "ZeroModel"
-        }}
+        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":memory/QuorumMemory*"),
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
       {
         Sid: "ManageShortLivedQuorumGateway",
@@ -228,13 +223,8 @@ jq -n \
           "bedrock-agentcore:ListGatewayTargets",
           "bedrock-agentcore:InvokeGateway"
         ],
-        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":gateway/*"),
-        Condition: {StringEquals: {
-          "aws:RequestedRegion": $region,
-          "aws:ResourceTag/Project": "Quorum",
-          "aws:ResourceTag/DataClassification": "SyntheticOnly",
-          "aws:ResourceTag/CostMode": "ZeroModel"
-        }}
+        Resource: ("arn:aws:bedrock-agentcore:" + $region + ":" + $account + ":gateway/quorumgateway-*"),
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
       {
         Sid: "TagShortLivedQuorumResources",
