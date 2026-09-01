@@ -14,6 +14,7 @@ from typing import Any
 import boto3
 
 POLICY_PREFIX = "QuorumTransactionSearchVerification-"
+SHARED_SPAN_LOG_GROUP = "aws/spans"
 PROBE_SPAN_NAME = "quorum.observability.probe"
 PRIVACY_SENTINEL = "synthetic-payload-must-not-appear-in-telemetry"
 ALLOWED_QUORUM_ATTRIBUTES = {
@@ -62,6 +63,11 @@ def _transaction_policy(account_id: str, region: str) -> str:
     return json.dumps(policy, separators=(",", ":"), sort_keys=True)
 
 
+def _log_group_exists(logs: Any, name: str) -> bool:
+    groups = logs.describe_log_groups(logGroupNamePrefix=name).get("logGroups", [])
+    return any(item.get("logGroupName") == name for item in groups)
+
+
 def prepare(args: argparse.Namespace) -> None:
     if not re.fullmatch(r"QuorumTransactionSearchVerification-[A-Za-z0-9-]+", args.policy_name):
         raise ValueError("policy name must be unique and use the Quorum verification prefix")
@@ -81,6 +87,7 @@ def prepare(args: argparse.Namespace) -> None:
         "policy_created": False,
         "previous_destination": destination,
         "previous_indexing_percentage": percentage,
+        "shared_span_log_group_preexisting": _log_group_exists(logs, SHARED_SPAN_LOG_GROUP),
         "region": args.region,
     }
     _write_state(args.state_file, state)
@@ -116,19 +123,25 @@ def restore(args: argparse.Namespace) -> None:
     logs = session.client("logs")
     xray = session.client("xray")
     errors: list[str] = []
+    current_destination = xray.get_trace_segment_destination()
+    current_rules = xray.get_indexing_rules().get("IndexingRules", [])
+    current_default = next(item for item in current_rules if item.get("Name") == "Default")
+    current_percentage = current_default["Rule"]["Probabilistic"]["DesiredSamplingPercentage"]
     try:
-        xray.update_indexing_rule(
-            Name="Default",
-            Rule={
-                "Probabilistic": {
-                    "DesiredSamplingPercentage": state["previous_indexing_percentage"]
-                }
-            },
-        )
+        if current_percentage != state["previous_indexing_percentage"]:
+            xray.update_indexing_rule(
+                Name="Default",
+                Rule={
+                    "Probabilistic": {
+                        "DesiredSamplingPercentage": state["previous_indexing_percentage"]
+                    }
+                },
+            )
     except Exception as exc:  # cleanup must continue across independent resources
         errors.append(f"indexing restore failed: {type(exc).__name__}")
     try:
-        xray.update_trace_segment_destination(Destination=state["previous_destination"])
+        if current_destination.get("Destination") != state["previous_destination"]:
+            xray.update_trace_segment_destination(Destination=state["previous_destination"])
     except Exception as exc:  # cleanup must continue across independent resources
         errors.append(f"destination restore failed: {type(exc).__name__}")
     if state.get("policy_created"):
@@ -158,9 +171,18 @@ def restore(args: argparse.Namespace) -> None:
     )
     if any(item.get("policyName") == state["policy_name"] for item in remaining_policies):
         raise RuntimeError("temporary Transaction Search policy still exists after cleanup")
+    if not state.get("shared_span_log_group_preexisting", True):
+        if _log_group_exists(logs, SHARED_SPAN_LOG_GROUP):
+            logs.delete_log_group(logGroupName=SHARED_SPAN_LOG_GROUP)
+        if _log_group_exists(logs, SHARED_SPAN_LOG_GROUP):
+            raise RuntimeError("temporary shared span log group still exists after cleanup")
     print(f"transaction_search_destination_restored={state['previous_destination']}")
     print(f"transaction_search_indexing_restored={state['previous_indexing_percentage']}")
     print("transaction_search_policy_removed=true")
+    print(
+        "shared_span_log_group_removed="
+        f"{str(not state.get('shared_span_log_group_preexisting', True)).lower()}"
+    )
 
 
 def _walk(value: object) -> Iterable[Mapping[str, Any]]:

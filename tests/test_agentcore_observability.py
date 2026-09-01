@@ -14,6 +14,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
     def test_prepare_records_state_and_enables_zero_index_transaction_search(self) -> None:
         logs = MagicMock()
         logs.describe_resource_policies.return_value = {"resourcePolicies": []}
+        logs.describe_log_groups.return_value = {"logGroups": []}
         xray = MagicMock()
         xray.get_trace_segment_destination.side_effect = [
             {"Destination": "XRay", "Status": "ACTIVE"},
@@ -43,6 +44,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
 
         self.assertEqual(state["previous_destination"], "XRay")
         self.assertTrue(state["policy_created"])
+        self.assertFalse(state["shared_span_log_group_preexisting"])
         logs.put_resource_policy.assert_called_once()
         xray.update_trace_segment_destination.assert_called_once_with(Destination="CloudWatchLogs")
         xray.update_indexing_rule.assert_called_once_with(
@@ -53,6 +55,10 @@ class AgentCoreObservabilityTest(unittest.TestCase):
     def test_restore_reinstates_prior_settings_and_deletes_only_named_policy(self) -> None:
         logs = MagicMock()
         logs.describe_resource_policies.return_value = {"resourcePolicies": []}
+        logs.describe_log_groups.side_effect = [
+            {"logGroups": [{"logGroupName": "aws/spans"}]},
+            {"logGroups": []},
+        ]
         xray = MagicMock()
         xray.get_trace_segment_destination.return_value = {
             "Destination": "XRay",
@@ -75,6 +81,7 @@ class AgentCoreObservabilityTest(unittest.TestCase):
                         "policy_created": True,
                         "previous_destination": "XRay",
                         "previous_indexing_percentage": 0.0,
+                        "shared_span_log_group_preexisting": False,
                         "region": "ap-northeast-1",
                     }
                 ),
@@ -87,7 +94,9 @@ class AgentCoreObservabilityTest(unittest.TestCase):
         logs.delete_resource_policy.assert_called_once_with(
             policyName="QuorumTransactionSearchVerification-123-1"
         )
-        xray.update_trace_segment_destination.assert_called_once_with(Destination="XRay")
+        xray.update_trace_segment_destination.assert_not_called()
+        xray.update_indexing_rule.assert_not_called()
+        logs.delete_log_group.assert_called_once_with(logGroupName="aws/spans")
 
     def test_verify_matches_managed_ids_and_rejects_forbidden_content(self) -> None:
         logs = MagicMock()

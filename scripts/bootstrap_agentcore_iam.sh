@@ -369,23 +369,42 @@ jq -n \
     ]
   }' >"${work_dir}/deployer-policy.json"
 
-jq -n --arg region "${AWS_REGION}" '{
+jq -n \
+  --arg account "${AWS_ACCOUNT_ID}" \
+  --arg region "${AWS_REGION}" \
+  '{
   Version: "2012-10-17",
-  Statement: [{
-    Sid: "ManageTemporaryTransactionSearchForQuorum",
-    Effect: "Allow",
-    Action: [
-      "logs:DeleteResourcePolicy",
-      "logs:DescribeResourcePolicies",
-      "logs:PutResourcePolicy",
-      "xray:GetIndexingRules",
-      "xray:GetTraceSegmentDestination",
-      "xray:UpdateIndexingRule",
-      "xray:UpdateTraceSegmentDestination"
-    ],
-    Resource: "*",
-    Condition: {StringEquals: {"aws:RequestedRegion": $region}}
-  }]
+  Statement: [
+    {
+      Sid: "ManageTemporaryTransactionSearchForQuorum",
+      Effect: "Allow",
+      Action: [
+        "logs:DeleteResourcePolicy",
+        "logs:DescribeResourcePolicies",
+        "logs:PutResourcePolicy",
+        "xray:GetIndexingRules",
+        "xray:GetTraceSegmentDestination",
+        "xray:UpdateIndexingRule",
+        "xray:UpdateTraceSegmentDestination"
+      ],
+      Resource: "*",
+      Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+    },
+    {
+      Sid: "InspectSharedSpanLogGroup",
+      Effect: "Allow",
+      Action: "logs:DescribeLogGroups",
+      Resource: "*",
+      Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+    },
+    {
+      Sid: "CreateDeleteOnlySharedSpanLogGroup",
+      Effect: "Allow",
+      Action: ["logs:CreateLogGroup", "logs:DeleteLogGroup"],
+      Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:aws/spans"),
+      Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+    }
+  ]
 }' >"${work_dir}/observability-policy.json"
 
 jq -n --arg account "${AWS_ACCOUNT_ID}" --arg region "${AWS_REGION}" '{

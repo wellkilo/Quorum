@@ -263,7 +263,7 @@ jobs:
           QUORUM_DELETE_RUNTIME_LOG_GROUP: "true"
         run: bash scripts/cleanup_agentcore_runtime.sh
 
-      - name: Restore prior Transaction Search settings
+      - name: Configure temporary observability restore credentials
         if: ${{ always() && inputs.operation == 'deploy' && steps.observability.outcome != 'skipped' }}
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:

@@ -177,7 +177,7 @@ fi
             observability_statements = {
                 statement["Sid"]: statement for statement in observability_policy["Statement"]
             }
-            self.assertEqual(len(observability_statements), 1)
+            self.assertEqual(len(observability_statements), 3)
             transaction_search = observability_statements[
                 "ManageTemporaryTransactionSearchForQuorum"
             ]
@@ -186,6 +186,15 @@ fi
             self.assertEqual(
                 transaction_search["Condition"]["StringEquals"],
                 {"aws:RequestedRegion": "ap-northeast-1"},
+            )
+            span_group = observability_statements["CreateDeleteOnlySharedSpanLogGroup"]
+            self.assertEqual(
+                set(span_group["Action"]),
+                {"logs:CreateLogGroup", "logs:DeleteLogGroup"},
+            )
+            self.assertEqual(
+                span_group["Resource"],
+                "arn:aws:logs:ap-northeast-1:123456789012:log-group:aws/spans",
             )
 
             runtime_policy = json.loads(captured_runtime_policy.read_text(encoding="utf-8"))
