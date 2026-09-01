@@ -74,22 +74,22 @@ def _log_group_exists(logs: Any, name: str) -> bool:
     return any(item.get("logGroupName") == name for item in groups)
 
 
-def _role_exists(iam: Any, name: str) -> bool:
-    try:
-        iam.get_role(RoleName=name)
-        return True
-    except ClientError as exc:
-        if exc.response.get("Error", {}).get("Code") == "NoSuchEntity":
-            return False
-        raise
-
-
 def _is_missing_resource_error(exc: Exception) -> bool:
     return isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code") in {
         "NoSuchEntity",
         "NoSuchEntityException",
         "ResourceNotFoundException",
     }
+
+
+def _role_exists(iam: Any, name: str) -> bool:
+    try:
+        iam.get_role(RoleName=name)
+        return True
+    except ClientError as exc:
+        if _is_missing_resource_error(exc):
+            return False
+        raise
 
 
 def _application_signals_channel_arns(cloudtrail: Any) -> set[str]:
