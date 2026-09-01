@@ -18,6 +18,7 @@ class AgentCoreIamBootstrapTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             captured_policy = root / "deployer-policy.json"
+            captured_observability_policy = root / "observability-policy.json"
             captured_runtime_policy = root / "runtime-policy.json"
             fake_aws = root / "aws"
             fake_aws.write_text(
@@ -35,6 +36,8 @@ if [[ "$1 $2" == "iam put-role-policy" ]]; then
   done
   if [[ "$role_name" == "QuorumAgentCoreDeployerRole" ]]; then
     cp "${policy_document#file://}" "$CAPTURED_POLICY"
+  elif [[ "$role_name" == "QuorumAgentCoreObservabilityRole" ]]; then
+    cp "${policy_document#file://}" "$CAPTURED_OBSERVABILITY_POLICY"
   elif [[ "$role_name" == "QuorumAgentCoreRuntimeRole" ]]; then
     cp "${policy_document#file://}" "$CAPTURED_RUNTIME_POLICY"
   fi
@@ -50,6 +53,7 @@ fi
                     "AWS_REGION": "ap-northeast-1",
                     "AWS_CLI": str(fake_aws),
                     "CAPTURED_POLICY": str(captured_policy),
+                    "CAPTURED_OBSERVABILITY_POLICY": str(captured_observability_policy),
                     "CAPTURED_RUNTIME_POLICY": str(captured_runtime_policy),
                 }
             )
@@ -162,9 +166,27 @@ fi
                 "arn:aws:logs:ap-northeast-1:123456789012:"
                 "log-group:/aws/bedrock-agentcore/runtimes/QuorumRuntime-*",
             )
-            transaction_search = statements["ManageTemporaryTransactionSearchForQuorum"]
+            self.assertNotIn("ManageTemporaryTransactionSearchForQuorum", statements)
+            self.assertLessEqual(
+                len(json.dumps(policy, separators=(",", ":"))),
+                10_240,
+            )
+            observability_policy = json.loads(
+                captured_observability_policy.read_text(encoding="utf-8")
+            )
+            observability_statements = {
+                statement["Sid"]: statement for statement in observability_policy["Statement"]
+            }
+            self.assertEqual(len(observability_statements), 1)
+            transaction_search = observability_statements[
+                "ManageTemporaryTransactionSearchForQuorum"
+            ]
             self.assertIn("logs:PutResourcePolicy", transaction_search["Action"])
             self.assertIn("xray:UpdateTraceSegmentDestination", transaction_search["Action"])
+            self.assertEqual(
+                transaction_search["Condition"]["StringEquals"],
+                {"aws:RequestedRegion": "ap-northeast-1"},
+            )
 
             runtime_policy = json.loads(captured_runtime_policy.read_text(encoding="utf-8"))
             runtime_statements = {
@@ -190,6 +212,8 @@ fi
         self.assertIn("manage_agentcore_observability.py prepare", workflow)
         self.assertIn("manage_agentcore_observability.py verify", workflow)
         self.assertIn("manage_agentcore_observability.py restore", workflow)
+        self.assertIn("QuorumAgentCoreObservabilityRole", workflow)
+        self.assertIn("quorum-observability-restore", workflow)
         self.assertIn('QUORUM_EXECUTION_ENABLED: "false"', workflow)
         self.assertIn("synthetic-payload-must-not-appear-in-telemetry", workflow)
         self.assertIn("contains(logStreamName, '$session_id')", workflow)

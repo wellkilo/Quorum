@@ -84,6 +84,27 @@ jobs:
             --source-dir src \
             --output dist/quorum-agentcore-runtime.zip
 
+      - name: Configure temporary observability credentials
+        if: inputs.operation == 'deploy'
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: arn:aws:iam::463092208284:role/QuorumAgentCoreObservabilityRole
+          role-session-name: quorum-observability-github
+          aws-region: ap-northeast-1
+          allowed-account-ids: "463092208284"
+          mask-aws-account-id: true
+
+      - name: Confirm scoped observability identity
+        if: inputs.operation == 'deploy'
+        run: |
+          set -euo pipefail
+          caller_arn="$(aws sts get-caller-identity --query Arn --output text)"
+          case "$caller_arn" in
+            arn:aws:sts::*:assumed-role/QuorumAgentCoreObservabilityRole/*) ;;
+            *) echo "Unexpected AWS identity: $caller_arn" >&2; exit 1 ;;
+          esac
+          echo "Authenticated with the scoped Quorum observability role."
+
       - name: Prepare temporary zero-index Transaction Search
         id: observability
         if: inputs.operation == 'deploy'
@@ -94,6 +115,16 @@ jobs:
             --region "$AWS_REGION" \
             --policy-name "QuorumTransactionSearchVerification-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --state-file "$QUORUM_OBSERVABILITY_STATE"
+
+      - name: Restore scoped Runtime deployment credentials
+        if: inputs.operation == 'deploy' && steps.observability.outcome == 'success'
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: arn:aws:iam::463092208284:role/QuorumAgentCoreDeployerRole
+          role-session-name: quorum-agentcore-github
+          aws-region: ap-northeast-1
+          allowed-account-ids: "463092208284"
+          mask-aws-account-id: true
 
       - name: Deploy or update zero-model Runtime
         id: deploy
@@ -233,6 +264,16 @@ jobs:
         run: bash scripts/cleanup_agentcore_runtime.sh
 
       - name: Restore prior Transaction Search settings
+        if: ${{ always() && inputs.operation == 'deploy' && steps.observability.outcome != 'skipped' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: arn:aws:iam::463092208284:role/QuorumAgentCoreObservabilityRole
+          role-session-name: quorum-observability-restore
+          aws-region: ap-northeast-1
+          allowed-account-ids: "463092208284"
+          mask-aws-account-id: true
+
+      - name: Restore prior Transaction Search settings and policy
         if: ${{ always() && inputs.operation == 'deploy' && steps.observability.outcome != 'skipped' }}
         run: |
           uv run --extra runtime --locked python scripts/manage_agentcore_observability.py restore \

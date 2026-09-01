@@ -11,6 +11,7 @@ VERIFY_BUCKET_NAME="${QUORUM_AGENTCORE_VERIFY_BUCKET:-quorum-agentcore-verify-${
 OBJECT_KEY="${QUORUM_AGENTCORE_OBJECT_KEY:-runtime/quorum-agentcore-runtime.zip}"
 VERIFY_OBJECT_KEY="${QUORUM_AGENTCORE_VERIFY_OBJECT_KEY:-verification/quorum-gateway-lambda.zip}"
 DEPLOYER_ROLE="QuorumAgentCoreDeployerRole"
+OBSERVABILITY_ROLE="QuorumAgentCoreObservabilityRole"
 RUNTIME_ROLE="QuorumAgentCoreRuntimeRole"
 GATEWAY_ROLE="QuorumAgentCoreGatewayRole"
 LAMBDA_ROLE="QuorumGatewayLambdaRole"
@@ -187,21 +188,6 @@ jq -n \
         Effect: "Allow",
         Action: "logs:DeleteLogGroup",
         Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/bedrock-agentcore/runtimes/" + $runtime_name + "-*"),
-        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
-      },
-      {
-        Sid: "ManageTemporaryTransactionSearchForQuorum",
-        Effect: "Allow",
-        Action: [
-          "logs:DeleteResourcePolicy",
-          "logs:DescribeResourcePolicies",
-          "logs:PutResourcePolicy",
-          "xray:GetIndexingRules",
-          "xray:GetTraceSegmentDestination",
-          "xray:UpdateIndexingRule",
-          "xray:UpdateTraceSegmentDestination"
-        ],
-        Resource: "*",
         Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
       {
@@ -383,6 +369,25 @@ jq -n \
     ]
   }' >"${work_dir}/deployer-policy.json"
 
+jq -n --arg region "${AWS_REGION}" '{
+  Version: "2012-10-17",
+  Statement: [{
+    Sid: "ManageTemporaryTransactionSearchForQuorum",
+    Effect: "Allow",
+    Action: [
+      "logs:DeleteResourcePolicy",
+      "logs:DescribeResourcePolicies",
+      "logs:PutResourcePolicy",
+      "xray:GetIndexingRules",
+      "xray:GetTraceSegmentDestination",
+      "xray:UpdateIndexingRule",
+      "xray:UpdateTraceSegmentDestination"
+    ],
+    Resource: "*",
+    Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+  }]
+}' >"${work_dir}/observability-policy.json"
+
 jq -n --arg account "${AWS_ACCOUNT_ID}" --arg region "${AWS_REGION}" '{
   Version: "2012-10-17",
   Statement: [{
@@ -541,6 +546,21 @@ fi
   --policy-name QuorumAgentCoreDeployPolicy \
   --policy-document "file://${work_dir}/deployer-policy.json"
 
+if ! "${AWS_CLI}" iam get-role --role-name "${OBSERVABILITY_ROLE}" >/dev/null 2>&1; then
+  "${AWS_CLI}" iam create-role \
+    --role-name "${OBSERVABILITY_ROLE}" \
+    --description "Quorum temporary Transaction Search verifier" \
+    --assume-role-policy-document "file://${work_dir}/deployer-trust.json" \
+    --tags Key=Project,Value=Quorum Key=CostMode,Value=ZeroModel >/dev/null
+fi
+"${AWS_CLI}" iam update-assume-role-policy \
+  --role-name "${OBSERVABILITY_ROLE}" \
+  --policy-document "file://${work_dir}/deployer-trust.json"
+"${AWS_CLI}" iam put-role-policy \
+  --role-name "${OBSERVABILITY_ROLE}" \
+  --policy-name QuorumAgentCoreObservabilityPolicy \
+  --policy-document "file://${work_dir}/observability-policy.json"
+
 if ! "${AWS_CLI}" iam get-role --role-name "${RUNTIME_ROLE}" >/dev/null 2>&1; then
   "${AWS_CLI}" iam create-role \
     --role-name "${RUNTIME_ROLE}" \
@@ -587,6 +607,7 @@ fi
   --policy-document "file://${work_dir}/lambda-policy.json"
 
 printf 'deployer_role_arn=arn:aws:iam::%s:role/%s\n' "${AWS_ACCOUNT_ID}" "${DEPLOYER_ROLE}"
+printf 'observability_role_arn=arn:aws:iam::%s:role/%s\n' "${AWS_ACCOUNT_ID}" "${OBSERVABILITY_ROLE}"
 printf 'runtime_role_arn=arn:aws:iam::%s:role/%s\n' "${AWS_ACCOUNT_ID}" "${RUNTIME_ROLE}"
 printf 'gateway_role_arn=arn:aws:iam::%s:role/%s\n' "${AWS_ACCOUNT_ID}" "${GATEWAY_ROLE}"
 printf 'lambda_role_arn=arn:aws:iam::%s:role/%s\n' "${AWS_ACCOUNT_ID}" "${LAMBDA_ROLE}"

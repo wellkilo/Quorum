@@ -419,7 +419,8 @@ a fixed sentinel. The workflow searches the managed span stream for the probe, c
 and span IDs with the Runtime response, rejects captured payload content or forbidden service-call
 markers, and then removes all short-lived resources. Transaction Search is enabled only for the
 verification window with 0% indexing; the workflow restores its prior destination, indexing rate,
-and named resource policy afterward.
+and named resource policy afterward. A separate GitHub OIDC observability role holds only these
+account-level CloudWatch Logs and X-Ray configuration actions; the Runtime deployer role does not.
 
 ## Slack Web API methods
 
