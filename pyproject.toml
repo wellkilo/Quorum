@@ -30,6 +30,7 @@ postgres = [
   "psycopg[binary]==3.3.4",
 ]
 runtime = [
+  "aws-opentelemetry-distro==0.19.0",
   "bedrock-agentcore==1.22.0",
   "mcp-proxy-for-aws==1.6.4",
 ]

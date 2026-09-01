@@ -12,6 +12,7 @@ from pathlib import Path
 EXCLUDED_PARTS = {"__pycache__", ".DS_Store"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 REQUIRED_MEMBERS = {
+    "bin/opentelemetry-instrument",
     "main.py",
     "quorum/runtime.py",
     "quorum/demo/index.html",
@@ -39,10 +40,18 @@ def build_archive(
     shutil.copytree(source_dir / "quorum", package_destination)
     shutil.copy2(entrypoint, staging_dir / "main.py")
 
+    instrument = staging_dir / "bin/opentelemetry-instrument"
+    if instrument.is_file():
+        lines = instrument.read_text(encoding="utf-8").splitlines()
+        if not lines:
+            raise RuntimeError("opentelemetry-instrument is empty")
+        lines[0] = "#!/usr/bin/env python3"
+        instrument.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     for directory in (path for path in staging_dir.rglob("*") if path.is_dir()):
         directory.chmod(0o755)
     for file_path in (path for path in staging_dir.rglob("*") if path.is_file()):
-        file_path.chmod(0o644)
+        file_path.chmod(0o755 if file_path == instrument else 0o644)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.unlink(missing_ok=True)
@@ -51,7 +60,8 @@ def build_archive(
             if not path.is_file() or not _included(path.relative_to(staging_dir)):
                 continue
             info = zipfile.ZipInfo.from_file(path, path.relative_to(staging_dir).as_posix())
-            info.external_attr = (stat.S_IFREG | 0o644) << 16
+            mode = 0o755 if path == instrument else 0o644
+            info.external_attr = (stat.S_IFREG | mode) << 16
             with path.open("rb") as source:
                 archive.writestr(info, source.read(), compress_type=zipfile.ZIP_DEFLATED)
 
@@ -68,6 +78,13 @@ def build_archive(
         raise RuntimeError(f"CodeZip is missing required members: {', '.join(missing)}")
     if bad_members:
         raise RuntimeError(f"CodeZip contains excluded bytecode: {bad_members[0]}")
+    with zipfile.ZipFile(output_path) as archive:
+        instrument_text = archive.read("bin/opentelemetry-instrument").decode("utf-8")
+        instrument_mode = archive.getinfo("bin/opentelemetry-instrument").external_attr >> 16
+    if not instrument_text.startswith("#!/usr/bin/env python3\n"):
+        raise RuntimeError("CodeZip has a non-portable OpenTelemetry entrypoint shebang")
+    if instrument_mode & 0o111 == 0:
+        raise RuntimeError("CodeZip OpenTelemetry entrypoint is not executable")
     size = output_path.stat().st_size
     if size > MAX_COMPRESSED_BYTES:
         raise RuntimeError(f"CodeZip is too large: {size} bytes")

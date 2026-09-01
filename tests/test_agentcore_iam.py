@@ -18,6 +18,7 @@ class AgentCoreIamBootstrapTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             captured_policy = root / "deployer-policy.json"
+            captured_runtime_policy = root / "runtime-policy.json"
             fake_aws = root / "aws"
             fake_aws.write_text(
                 """#!/usr/bin/env bash
@@ -34,6 +35,8 @@ if [[ "$1 $2" == "iam put-role-policy" ]]; then
   done
   if [[ "$role_name" == "QuorumAgentCoreDeployerRole" ]]; then
     cp "${policy_document#file://}" "$CAPTURED_POLICY"
+  elif [[ "$role_name" == "QuorumAgentCoreRuntimeRole" ]]; then
+    cp "${policy_document#file://}" "$CAPTURED_RUNTIME_POLICY"
   fi
 fi
 """,
@@ -47,6 +50,7 @@ fi
                     "AWS_REGION": "ap-northeast-1",
                     "AWS_CLI": str(fake_aws),
                     "CAPTURED_POLICY": str(captured_policy),
+                    "CAPTURED_RUNTIME_POLICY": str(captured_runtime_policy),
                 }
             )
 
@@ -151,17 +155,53 @@ fi
                 statements["DeleteShortLivedGatewayLambdaLogs"]["Action"],
                 "logs:DeleteLogGroup",
             )
+            runtime_logs = statements["ReadQuorumRuntimeLogs"]
+            self.assertIn("logs:FilterLogEvents", runtime_logs["Action"])
+            self.assertEqual(
+                statements["DeleteOnlyQuorumRuntimeEvidenceLogs"]["Resource"],
+                "arn:aws:logs:ap-northeast-1:123456789012:"
+                "log-group:/aws/bedrock-agentcore/runtimes/QuorumRuntime-*",
+            )
+            transaction_search = statements["ManageTemporaryTransactionSearchForQuorum"]
+            self.assertIn("logs:PutResourcePolicy", transaction_search["Action"])
+            self.assertIn("xray:UpdateTraceSegmentDestination", transaction_search["Action"])
+
+            runtime_policy = json.loads(captured_runtime_policy.read_text(encoding="utf-8"))
+            runtime_statements = {
+                statement["Sid"]: statement for statement in runtime_policy["Statement"]
+            }
+            self.assertEqual(
+                runtime_statements["RuntimeUnifiedTracePolicy"],
+                {
+                    "Sid": "RuntimeUnifiedTracePolicy",
+                    "Effect": "Allow",
+                    "Action": "logs:PutResourcePolicy",
+                    "Resource": (
+                        "arn:aws:logs:ap-northeast-1:123456789012:"
+                        "log-group:/aws/bedrock-agentcore/runtimes/QuorumRuntime-*"
+                    ),
+                },
+            )
 
     def test_deployment_requires_remote_503_evidence_and_always_cleans_up(self) -> None:
         workflow = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("Invocation returned HTTP 503", workflow)
+        self.assertIn("manage_agentcore_observability.py prepare", workflow)
+        self.assertIn("manage_agentcore_observability.py verify", workflow)
+        self.assertIn("manage_agentcore_observability.py restore", workflow)
+        self.assertIn('QUORUM_EXECUTION_ENABLED: "false"', workflow)
+        self.assertIn("synthetic-payload-must-not-appear-in-telemetry", workflow)
         self.assertIn("contains(logStreamName, '$session_id')", workflow)
         self.assertIn('if [[ "$invoke_exit" == "0" ]]', workflow)
         self.assertIn(
             "always() && inputs.operation == 'deploy'",
             workflow,
         )
+        self.assertIn("steps.deploy.outcome != 'skipped'", workflow)
+        self.assertIn("steps.observability.outcome != 'skipped'", workflow)
+        self.assertNotIn("steps.deploy.outcome == 'failure'", workflow)
+        self.assertNotIn("steps.observability.outcome == 'failure'", workflow)
 
     def test_services_workflow_is_zero_model_zero_event_zero_tool_call_and_cleans_up(self) -> None:
         workflow = SERVICES_WORKFLOW.read_text(encoding="utf-8")

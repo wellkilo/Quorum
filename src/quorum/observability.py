@@ -15,6 +15,7 @@ _ALLOWED_ATTRIBUTE_KEYS = frozenset(
         "quorum.session_id",
         "quorum.graph_node",
         "quorum.policy_outcome",
+        "quorum.probe_id",
         "quorum.interrupt_count",
         "quorum.action_id",
         "quorum.data_classification",
@@ -64,3 +65,13 @@ def traced_operation(name: str, attributes: Mapping[str, object]) -> Iterator[An
         for key, value in safe_trace_attributes(attributes).items():
             span.set_attribute(key, value)
         yield span
+
+
+def flush_traces(timeout_millis: int = 5000) -> bool:
+    """Flush an installed SDK provider; remain a safe no-op without an exporter."""
+
+    force_flush = getattr(trace.get_tracer_provider(), "force_flush", None)
+    if not callable(force_flush):
+        return True
+    result = force_flush(timeout_millis=timeout_millis)
+    return result is not False

@@ -5,7 +5,9 @@ import hmac
 import json
 import time
 import unittest
-from unittest.mock import AsyncMock
+from contextlib import contextmanager
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from starlette.testclient import TestClient
 
@@ -116,6 +118,72 @@ class RuntimeHttpContractTest(unittest.TestCase):
         self.assertEqual(response.json()["session_id"], VALID_SESSION_ID)
         self.assertEqual(len(self.invoker.calls), 1)
         self.assertEqual(self.invoker.calls[0][0].organization_id, "org_opaque")
+
+    def test_observability_probe_is_synthetic_typed_and_has_no_service_dependencies(self) -> None:
+        span = MagicMock()
+        span.get_span_context.return_value = SimpleNamespace(
+            trace_id=int("1" * 32, 16),
+            span_id=int("2" * 16, 16),
+        )
+
+        @contextmanager
+        def fake_trace(name: str, attributes: dict[str, object]):
+            self.assertEqual(name, "quorum.observability.probe")
+            self.assertEqual(
+                attributes,
+                {
+                    "quorum.probe_id": "probe_opaque",
+                    "quorum.organization_id": "org_synthetic",
+                    "quorum.session_id": VALID_SESSION_ID,
+                    "quorum.data_classification": "synthetic",
+                },
+            )
+            yield span
+
+        with (
+            patch("quorum.runtime.create_database_engine") as create_engine,
+            patch("quorum.runtime.flush_traces", return_value=True),
+            patch("quorum.runtime.traced_operation", side_effect=fake_trace),
+        ):
+            probe_client = TestClient(create_app())
+            response = probe_client.post(
+                "/invocations",
+                json={
+                    "kind": "observability_probe",
+                    "probe_id": "probe_opaque",
+                    "organization_id": "org_synthetic",
+                    "data_classification": "synthetic",
+                    "privacy_sentinel": "synthetic-payload-must-not-appear-in-telemetry",
+                },
+                headers={SESSION_HEADER: VALID_SESSION_ID},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["trace_id"], "1" * 32)
+        self.assertEqual(response.json()["span_id"], "2" * 16)
+        create_engine.assert_not_called()
+        self.assertEqual(self.invoker.calls, [])
+        self.assertEqual(self.processor.events, [])
+        self.assertEqual(self.undoer.tokens, [])
+
+    def test_observability_probe_rejects_real_data_free_text_and_missing_session(self) -> None:
+        probe = {
+            "kind": "observability_probe",
+            "probe_id": "probe_opaque",
+            "organization_id": "org_synthetic",
+            "data_classification": "redacted-real",
+            "privacy_sentinel": "synthetic-payload-must-not-appear-in-telemetry",
+            "prompt": "must not be accepted",
+        }
+
+        invalid = self.client.post(
+            "/invocations", json=probe, headers={SESSION_HEADER: VALID_SESSION_ID}
+        )
+        missing_session = self.client.post("/invocations", json=probe)
+
+        self.assertEqual(invalid.status_code, 422)
+        self.assertEqual(missing_session.status_code, 503)
+        self.assertEqual(self.invoker.calls, [])
 
     def test_disabled_model_access_returns_503_without_leaking_a_trace(self) -> None:
         invoker = AsyncMock(

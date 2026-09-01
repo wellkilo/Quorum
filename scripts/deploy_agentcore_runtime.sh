@@ -15,6 +15,10 @@ if [[ "${QUORUM_BEDROCK_ENABLED:-false}" != "false" ]]; then
   echo "QUORUM_BEDROCK_ENABLED must remain false for the zero-model deployment." >&2
   exit 2
 fi
+if [[ "${QUORUM_EXECUTION_ENABLED:-false}" != "false" ]]; then
+  echo "QUORUM_EXECUTION_ENABLED must remain false for the zero-side-effect deployment." >&2
+  exit 2
+fi
 
 if ! "${AWS_CLI}" s3api head-bucket \
   --bucket "${BUCKET_NAME}" \
@@ -55,20 +59,32 @@ jq -n \
   --arg region "${AWS_REGION}" \
   '{
     agentRuntimeName: $name,
-    description: "Quorum zero-model synthetic replay runtime",
+    description: "Quorum zero-model synthetic observability verification runtime",
     agentRuntimeArtifact: {codeConfiguration: {
       code: {s3: {bucket: $bucket, prefix: $key}},
       runtime: "PYTHON_3_13",
-      entryPoint: ["main.py"]
+      entryPoint: ["opentelemetry-instrument", "main.py"]
     }},
     roleArn: $role,
     networkConfiguration: {networkMode: "PUBLIC"},
     lifecycleConfiguration: {idleRuntimeSessionTimeout: 60, maxLifetime: 900},
     environmentVariables: {
       QUORUM_BEDROCK_ENABLED: "false",
+      QUORUM_EXECUTION_ENABLED: "false",
       QUORUM_BEDROCK_MAX_TOKENS: "384",
       QUORUM_AWS_REGION: $region,
-      QUORUM_DATABASE_URL: "sqlite+pysqlite:////tmp/quorum.sqlite3"
+      QUORUM_DATABASE_URL: "sqlite+pysqlite:////tmp/quorum.sqlite3",
+      AGENT_OBSERVABILITY_ENABLED: "true",
+      OTEL_PYTHON_DISTRO: "aws_distro",
+      OTEL_PYTHON_CONFIGURATOR: "aws_configurator",
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
+      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/protobuf",
+      OTEL_TRACES_EXPORTER: "otlp",
+      OTEL_TRACES_SAMPLER: "always_on",
+      OTEL_LOGS_EXPORTER: "none",
+      OTEL_METRICS_EXPORTER: "none",
+      OTEL_SEMCONV_STABILITY_OPT_IN: "gen_ai_unredacted_attributes=",
+      UNIFIED_TRACES_DESTINATION_ENABLED: "true"
     },
     tags: {Project: "Quorum", DataClassification: "SyntheticOnly", CostMode: "ZeroModel"}
   }' >"${request_file}"

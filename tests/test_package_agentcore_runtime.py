@@ -18,6 +18,7 @@ class AgentCorePackageTest(unittest.TestCase):
             output = root / "runtime.zip"
             staging.mkdir()
             for member in REQUIRED_MEMBERS - {
+                "bin/opentelemetry-instrument",
                 "main.py",
                 "quorum/runtime.py",
                 "quorum/demo/index.html",
@@ -26,6 +27,11 @@ class AgentCorePackageTest(unittest.TestCase):
                 path = staging / member
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("", encoding="utf-8")
+            instrument = staging / "bin/opentelemetry-instrument"
+            instrument.parent.mkdir(parents=True, exist_ok=True)
+            instrument.write_text(
+                "#!/temporary/build/python\nprint('instrument')\n", encoding="utf-8"
+            )
             package = source / "quorum"
             (package / "demo").mkdir(parents=True)
             (package / "runtime.py").write_text("app = object()\n", encoding="utf-8")
@@ -42,8 +48,14 @@ class AgentCorePackageTest(unittest.TestCase):
             with zipfile.ZipFile(output) as archive:
                 names = set(archive.namelist())
                 packaged_entrypoint = archive.read("main.py").decode("utf-8")
+                instrument_mode = (
+                    archive.getinfo("bin/opentelemetry-instrument").external_attr >> 16
+                )
+                instrument_text = archive.read("bin/opentelemetry-instrument").decode("utf-8")
             self.assertEqual(names, REQUIRED_MEMBERS)
             self.assertIn("from quorum.runtime import app", packaged_entrypoint)
+            self.assertEqual(instrument_mode & 0o777, 0o755)
+            self.assertTrue(instrument_text.startswith("#!/usr/bin/env python3\n"))
 
     def test_archive_rejects_missing_runtime_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

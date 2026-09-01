@@ -399,12 +399,27 @@ See the [evidence record](docs/evidence/agentcore-services-2026-09-01.md) and
 
 AgentCore Observability uses managed ADOT/OpenTelemetry. `safe_trace_attributes()` enforces a closed
 allowlist of bounded scalar correlation attributes: opaque organization/session/action/replay IDs,
-graph node, policy outcome, interruption count, and data classification.
+probe ID, graph node, policy outcome, interruption count, and data classification.
 
 Strands is configured with `gen_ai_unredacted_attributes=` before an application is built. In
 `strands-agents==1.53.0`, the presence of this token with an empty allowlist redacts sensitive prompt,
 system-instruction, model-output, tool-argument, and tool-result attributes. Quorum never adds raw
 messages or provider payloads as custom span attributes.
+
+The CodeZip Runtime includes `aws-opentelemetry-distro==0.19.0` and starts through
+`opentelemetry-instrument main.py`. Deployment enables the AWS distro/configurator, OTLP HTTP
+trace exporter, always-on sampling for the single verification invocation, and the Runtime's
+per-agent unified `spans` stream. The execution role may call `logs:PutResourcePolicy` only for
+`/aws/bedrock-agentcore/runtimes/QuorumRuntime-*`, as required by the unified destination.
+
+`ObservabilityProbe` is a separate strict request type rather than a flag on the production model
+request. Its branch executes before any business database, Memory session manager, Gateway client,
+or Bedrock model is constructed. It accepts only synthetic classification, opaque identifiers, and
+a fixed sentinel. The workflow searches the managed span stream for the probe, compares its trace
+and span IDs with the Runtime response, rejects captured payload content or forbidden service-call
+markers, and then removes all short-lived resources. Transaction Search is enabled only for the
+verification window with 0% indexing; the workflow restores its prior destination, indexing rate,
+and named resource policy afterward.
 
 ## Slack Web API methods
 

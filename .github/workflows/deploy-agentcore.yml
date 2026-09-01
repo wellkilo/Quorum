@@ -30,11 +30,13 @@ env:
   QUORUM_AGENTCORE_BUCKET: quorum-agentcore-code-463092208284-ap-northeast-1
   QUORUM_AGENTCORE_OBJECT_KEY: runtime/quorum-agentcore-runtime.zip
   QUORUM_BEDROCK_ENABLED: "false"
+  QUORUM_EXECUTION_ENABLED: "false"
+  QUORUM_OBSERVABILITY_STATE: .agentcore-build/observability-state.json
 
 jobs:
   runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out the reviewed main branch
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -82,6 +84,17 @@ jobs:
             --source-dir src \
             --output dist/quorum-agentcore-runtime.zip
 
+      - name: Prepare temporary zero-index Transaction Search
+        id: observability
+        if: inputs.operation == 'deploy'
+        run: |
+          set -euo pipefail
+          uv run --extra runtime --locked python scripts/manage_agentcore_observability.py prepare \
+            --account-id "$AWS_ACCOUNT_ID" \
+            --region "$AWS_REGION" \
+            --policy-name "QuorumTransactionSearchVerification-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --state-file "$QUORUM_OBSERVABILITY_STATE"
+
       - name: Deploy or update zero-model Runtime
         id: deploy
         if: inputs.operation == 'deploy'
@@ -115,6 +128,53 @@ jobs:
             --agent-runtime-id "$runtime_id" --query agentRuntimeArn --output text)"
           echo "RUNTIME_ID=$runtime_id" >>"$GITHUB_ENV"
           echo "RUNTIME_ARN=$runtime_arn" >>"$GITHUB_ENV"
+
+      - name: Verify one synthetic managed span without agent service calls
+        if: inputs.operation == 'deploy'
+        run: |
+          set -euo pipefail
+          session_id="quorum-observability-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-0000000000000000"
+          probe_id="probe_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          start_time_ms="$(( $(date +%s) * 1000 ))"
+          stop_session() {
+            aws bedrock-agentcore stop-runtime-session \
+              --agent-runtime-arn "$RUNTIME_ARN" \
+              --runtime-session-id "$session_id" >/dev/null 2>&1 || true
+          }
+          trap stop_session EXIT
+          jq -n \
+            --arg probe_id "$probe_id" \
+            '{
+              kind: "observability_probe",
+              probe_id: $probe_id,
+              organization_id: "org_synthetic",
+              data_classification: "synthetic",
+              privacy_sentinel: "synthetic-payload-must-not-appear-in-telemetry"
+            }' >probe.json
+          aws bedrock-agentcore invoke-agent-runtime \
+            --agent-runtime-arn "$RUNTIME_ARN" \
+            --runtime-session-id "$session_id" \
+            --content-type application/json \
+            --accept application/json \
+            --payload fileb://probe.json \
+            probe-response.json
+          jq -e \
+            --arg probe_id "$probe_id" \
+            --arg session_id "$session_id" \
+            '.kind == "observability_probe" and .status == "completed" and
+             .probe_id == $probe_id and .session_id == $session_id and
+             (.trace_id | test("^[0-9a-f]{32}$")) and
+             (.span_id | test("^[0-9a-f]{16}$"))' probe-response.json >/dev/null
+          trace_id="$(jq -r .trace_id probe-response.json)"
+          span_id="$(jq -r .span_id probe-response.json)"
+          uv run --extra runtime --locked python scripts/manage_agentcore_observability.py verify \
+            --region "$AWS_REGION" \
+            --runtime-id "$RUNTIME_ID" \
+            --probe-id "$probe_id" \
+            --session-id "$session_id" \
+            --trace-id "$trace_id" \
+            --span-id "$span_id" \
+            --start-time-ms "$start_time_ms"
 
       - name: Verify the model path is fail-closed
         if: inputs.operation == 'deploy'
@@ -166,8 +226,17 @@ jobs:
           echo "Runtime rejected the disabled model path with HTTP 503 (CLI exit $invoke_exit)."
 
       - name: Remove the short-lived deployment after verification
-        if: ${{ always() && inputs.operation == 'deploy' && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') }}
+        if: ${{ always() && inputs.operation == 'deploy' && steps.deploy.outcome != 'skipped' }}
+        env:
+          QUORUM_AGENTCORE_RUNTIME_ID: ${{ env.RUNTIME_ID }}
+          QUORUM_DELETE_RUNTIME_LOG_GROUP: "true"
         run: bash scripts/cleanup_agentcore_runtime.sh
+
+      - name: Restore prior Transaction Search settings
+        if: ${{ always() && inputs.operation == 'deploy' && steps.observability.outcome != 'skipped' }}
+        run: |
+          uv run --extra runtime --locked python scripts/manage_agentcore_observability.py restore \
+            --state-file "$QUORUM_OBSERVABILITY_STATE"
 
       - name: Remove Runtime and artifact bucket
         if: inputs.operation == 'cleanup'

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from quorum.observability import (
     configure_strands_trace_redaction,
+    flush_traces,
     safe_trace_attributes,
     traced_operation,
 )
@@ -27,10 +28,15 @@ class ObservabilityTest(unittest.TestCase):
             safe_trace_attributes(
                 {
                     "quorum.organization_id": "org_opaque",
+                    "quorum.probe_id": "probe_opaque",
                     "quorum.interrupt_count": 2,
                 }
             ),
-            {"quorum.organization_id": "org_opaque", "quorum.interrupt_count": 2},
+            {
+                "quorum.organization_id": "org_opaque",
+                "quorum.probe_id": "probe_opaque",
+                "quorum.interrupt_count": 2,
+            },
         )
         with self.assertRaisesRegex(ValueError, "not allow-listed"):
             safe_trace_attributes({"quorum.prompt": "private text"})
@@ -50,6 +56,16 @@ class ObservabilityTest(unittest.TestCase):
 
         tracer.start_as_current_span.assert_called_once_with("quorum.test")
         span.set_attribute.assert_called_once_with("quorum.data_classification", "synthetic")
+
+    def test_flush_traces_uses_sdk_provider_and_tolerates_proxy_provider(self) -> None:
+        provider = MagicMock()
+        provider.force_flush.return_value = True
+        with patch("quorum.observability.trace.get_tracer_provider", return_value=provider):
+            self.assertTrue(flush_traces(250))
+        provider.force_flush.assert_called_once_with(timeout_millis=250)
+
+        with patch("quorum.observability.trace.get_tracer_provider", return_value=object()):
+            self.assertTrue(flush_traces())
 
 
 if __name__ == "__main__":

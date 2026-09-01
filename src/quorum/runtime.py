@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 import os
 from pathlib import Path
-from typing import Annotated, Protocol
+from typing import Annotated, Literal, Protocol
 
 from bedrock_agentcore import BedrockAgentCoreApp
 from bedrock_agentcore.runtime import RequestContext
@@ -37,6 +37,7 @@ from quorum.models import (
 )
 from quorum.observability import (
     configure_strands_trace_redaction,
+    flush_traces,
     safe_trace_attributes,
     traced_operation,
 )
@@ -79,6 +80,16 @@ class RuntimeInvocation(StrictModel):
         if self.action_request.organization_id != self.organization_id:
             raise ValueError("action_request organization does not match invocation")
         return self
+
+
+class ObservabilityProbe(StrictModel):
+    """Synthetic-only input that proves managed tracing without touching agent services."""
+
+    kind: Literal["observability_probe"]
+    probe_id: OpaqueId
+    organization_id: OpaqueId
+    data_classification: Literal[DataClassification.SYNTHETIC]
+    privacy_sentinel: Literal["synthetic-payload-must-not-appear-in-telemetry"]
 
 
 class SlackProcessor(Protocol):
@@ -219,10 +230,10 @@ def create_app(
     """Build one AgentCore-compatible app without requiring cloud credentials at import time."""
 
     configure_strands_trace_redaction()
-    active_engine = engine or create_database_engine(DatabaseSettings.from_environment())
-    invoker = runtime_invoker or ProductionRuntimeInvoker(active_engine)
-    active_slack_processor = slack_processor or ProductionSlackProcessor(active_engine)
-    undoer = undo_executor or LazyUndoExecutor(active_engine)
+    active_engine = engine
+    invoker = runtime_invoker
+    active_slack_processor = slack_processor
+    undoer = undo_executor
     replays = replay_store or ReplayStore()
     signing_secret = slack_signing_secret or _secret_from_environment("QUORUM_SLACK_SIGNING_SECRET")
     pseudonym_key = slack_pseudonym_key or _secret_from_environment("QUORUM_SLACK_PSEUDONYM_KEY")
@@ -230,12 +241,64 @@ def create_app(
     converter = SlackEventConverter(pseudonym_key) if pseudonym_key is not None else None
     app = BedrockAgentCoreApp()
 
+    def get_engine() -> Engine:
+        nonlocal active_engine
+        if active_engine is None:
+            active_engine = create_database_engine(DatabaseSettings.from_environment())
+        return active_engine
+
+    async def invoke_graph(
+        payload: RuntimeInvocation, session_id: RuntimeSessionId
+    ) -> dict[str, object]:
+        nonlocal invoker
+        if invoker is None:
+            invoker = ProductionRuntimeInvoker(get_engine())
+        return await invoker(payload, session_id)
+
+    async def process_slack_event(event: CanonicalMessageEvent) -> dict[str, object]:
+        nonlocal active_slack_processor
+        if active_slack_processor is None:
+            active_slack_processor = ProductionSlackProcessor(get_engine())
+        return await active_slack_processor(event)
+
+    def get_undoer() -> UndoExecutor:
+        nonlocal undoer
+        if undoer is None:
+            undoer = LazyUndoExecutor(get_engine())
+        return undoer
+
     @app.entrypoint
     async def invoke(raw: object, context: RequestContext) -> dict[str, object] | JSONResponse:
         try:
-            payload = RuntimeInvocation.model_validate(raw)
             session_id = _validated_session_id(context.session_id)
-            return await invoker(payload, session_id)
+            if isinstance(raw, dict) and raw.get("kind") == "observability_probe":
+                probe = ObservabilityProbe.model_validate(raw)
+                attributes = {
+                    "quorum.probe_id": probe.probe_id,
+                    "quorum.organization_id": probe.organization_id,
+                    "quorum.session_id": session_id,
+                    "quorum.data_classification": probe.data_classification.value,
+                }
+                with traced_operation("quorum.observability.probe", attributes) as span:
+                    span_context = span.get_span_context()
+                    if span_context.trace_id == 0 or span_context.span_id == 0:
+                        return JSONResponse(
+                            {"error": "managed trace provider is not active"}, status_code=503
+                        )
+                    trace_id = f"{span_context.trace_id:032x}"
+                    span_id = f"{span_context.span_id:016x}"
+                if not flush_traces():
+                    return JSONResponse({"error": "trace export flush failed"}, status_code=503)
+                return {
+                    "kind": probe.kind,
+                    "status": "completed",
+                    "probe_id": probe.probe_id,
+                    "session_id": session_id,
+                    "trace_id": trace_id,
+                    "span_id": span_id,
+                }
+            payload = RuntimeInvocation.model_validate(raw)
+            return await invoke_graph(payload, session_id)
         except ValidationError:
             return JSONResponse({"error": "invalid invocation payload"}, status_code=422)
         except (OnlineConfigurationError, RuntimeConfigurationError) as exc:
@@ -290,7 +353,7 @@ def create_app(
                     return JSONResponse({"error": str(exc)}, status_code=503)
             return JSONResponse(
                 {"accepted": True, "event_id": event.message_id},
-                background=BackgroundTask(active_slack_processor, event),
+                background=BackgroundTask(process_slack_event, event),
             )
         except SlackIngressError as exc:
             return JSONResponse({"error": str(exc)}, status_code=401)
@@ -321,7 +384,7 @@ def create_app(
         if not isinstance(token, str) or not token:
             return JSONResponse({"error": "undo token is required"}, status_code=400)
         try:
-            result = undoer.undo(token)
+            result = get_undoer().undo(token)
         except UndoTokenError:
             return JSONResponse({"error": "undo token is invalid or unavailable"}, status_code=410)
         except ExecutionConflictError:

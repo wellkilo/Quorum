@@ -374,6 +374,39 @@ When an operator deliberately enables a bounded run, `QUORUM_BEDROCK_MAX_TOKENS`
 response to 64–1024 output tokens and defaults to 384. This application guard is not an AWS billing
 hard limit.
 
+### 10.1 Zero-model observability probe
+
+The Runtime entrypoint also accepts one narrow, synthetic-only probe contract. It is evaluated
+before the PostgreSQL/SQLite engine, AgentCore Memory, AgentCore Gateway, or Bedrock model path is
+initialized. Unknown fields are rejected, and the fixed privacy sentinel is never copied to a span.
+
+```json
+{
+  "kind": "observability_probe",
+  "probe_id": "probe_opaque",
+  "organization_id": "org_synthetic",
+  "data_classification": "synthetic",
+  "privacy_sentinel": "synthetic-payload-must-not-appear-in-telemetry"
+}
+```
+
+```json
+{
+  "kind": "observability_probe",
+  "status": "completed",
+  "probe_id": "probe_opaque",
+  "session_id": "opaque-session-id-at-least-33-characters",
+  "trace_id": "32-lowercase-hex-characters",
+  "span_id": "16-lowercase-hex-characters"
+}
+```
+
+The custom span is named `quorum.observability.probe` and may contain only the opaque probe,
+organization, and session IDs plus `quorum.data_classification=synthetic`. The managed verification
+must find that span in the Runtime's `spans` stream, match its trace and span IDs to the response,
+prove the sentinel is absent, and report zero model, Memory event, Gateway tool, Slack, and Google
+Workspace calls.
+
 ## 11. AgentCore Memory verification contract
 
 The manual `Verify AgentCore Memory and Gateway` workflow creates a uniquely named, short-lived

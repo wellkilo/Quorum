@@ -171,11 +171,38 @@ jq -n \
       {
         Sid: "ReadQuorumRuntimeLogs",
         Effect: "Allow",
-        Action: ["logs:DescribeLogGroups", "logs:DescribeLogStreams", "logs:GetLogEvents"],
+        Action: [
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:FilterLogEvents",
+          "logs:GetLogEvents"
+        ],
         Resource: [
           ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/bedrock-agentcore/runtimes/*"),
           ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*")
         ]
+      },
+      {
+        Sid: "DeleteOnlyQuorumRuntimeEvidenceLogs",
+        Effect: "Allow",
+        Action: "logs:DeleteLogGroup",
+        Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/bedrock-agentcore/runtimes/" + $runtime_name + "-*"),
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
+      },
+      {
+        Sid: "ManageTemporaryTransactionSearchForQuorum",
+        Effect: "Allow",
+        Action: [
+          "logs:DeleteResourcePolicy",
+          "logs:DescribeResourcePolicies",
+          "logs:PutResourcePolicy",
+          "xray:GetIndexingRules",
+          "xray:GetTraceSegmentDestination",
+          "xray:UpdateIndexingRule",
+          "xray:UpdateTraceSegmentDestination"
+        ],
+        Resource: "*",
+        Condition: {StringEquals: {"aws:RequestedRegion": $region}}
       },
       {
         Sid: "CreateShortLivedQuorumMemoryAndGateway",
@@ -375,6 +402,7 @@ jq -n \
   --arg region "${AWS_REGION}" \
   --arg bucket "${BUCKET_NAME}" \
   --arg object_key "${OBJECT_KEY}" \
+  --arg runtime_name "${RUNTIME_NAME}" \
   '{
     Version: "2012-10-17",
     Statement: [
@@ -395,6 +423,12 @@ jq -n \
         Effect: "Allow",
         Action: ["logs:CreateLogStream", "logs:PutLogEvents"],
         Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*")
+      },
+      {
+        Sid: "RuntimeUnifiedTracePolicy",
+        Effect: "Allow",
+        Action: "logs:PutResourcePolicy",
+        Resource: ("arn:aws:logs:" + $region + ":" + $account + ":log-group:/aws/bedrock-agentcore/runtimes/" + $runtime_name + "-*")
       },
       {
         Sid: "RuntimeTelemetry",
