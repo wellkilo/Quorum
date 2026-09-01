@@ -433,13 +433,21 @@ jq -n \
       Effect: "Allow",
       Action: [
         "iam:CreateServiceLinkedRole",
-        "iam:DeleteServiceLinkedRole",
-        "iam:GetRole"
+        "iam:DeleteServiceLinkedRole"
       ],
       Resource: ("arn:aws:iam::" + $account + ":role/aws-service-role/application-signals.cloudwatch.amazonaws.com/AWSServiceRoleForCloudWatchApplicationSignals"),
       Condition: {
         StringLikeIfExists: {"iam:AWSServiceName": "application-signals.cloudwatch.amazonaws.com"}
       }
+    },
+    {
+      Sid: "ReadOnlyApplicationSignalsRoleState",
+      Effect: "Allow",
+      Action: "iam:GetRole",
+      Resource: [
+        ("arn:aws:iam::" + $account + ":role/AWSServiceRoleForCloudWatchApplicationSignals"),
+        ("arn:aws:iam::" + $account + ":role/aws-service-role/application-signals.cloudwatch.amazonaws.com/AWSServiceRoleForCloudWatchApplicationSignals")
+      ]
     },
     {
       Sid: "ReadApplicationSignalsRoleDeletionStatus",

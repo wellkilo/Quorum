@@ -177,7 +177,7 @@ fi
             observability_statements = {
                 statement["Sid"]: statement for statement in observability_policy["Statement"]
             }
-            self.assertEqual(len(observability_statements), 9)
+            self.assertEqual(len(observability_statements), 10)
             transaction_search = observability_statements[
                 "ManageTemporaryTransactionSearchForQuorum"
             ]
@@ -224,7 +224,6 @@ fi
                 {
                     "iam:CreateServiceLinkedRole",
                     "iam:DeleteServiceLinkedRole",
-                    "iam:GetRole",
                 },
             )
             self.assertEqual(
@@ -236,6 +235,17 @@ fi
             self.assertEqual(
                 service_role["Condition"]["StringLikeIfExists"],
                 {"iam:AWSServiceName": "application-signals.cloudwatch.amazonaws.com"},
+            )
+            role_state = observability_statements["ReadOnlyApplicationSignalsRoleState"]
+            self.assertEqual(role_state["Action"], "iam:GetRole")
+            self.assertEqual(
+                set(role_state["Resource"]),
+                {
+                    "arn:aws:iam::123456789012:role/AWSServiceRoleForCloudWatchApplicationSignals",
+                    "arn:aws:iam::123456789012:role/aws-service-role/"
+                    "application-signals.cloudwatch.amazonaws.com/"
+                    "AWSServiceRoleForCloudWatchApplicationSignals",
+                },
             )
             self.assertEqual(
                 observability_statements["ReadApplicationSignalsRoleDeletionStatus"]["Action"],
