@@ -293,7 +293,17 @@ def restore(args: argparse.Namespace) -> None:
             else:
                 task_id = task["DeletionTaskId"]
                 for _attempt in range(30):
-                    deletion = iam.get_service_linked_role_deletion_status(DeletionTaskId=task_id)
+                    try:
+                        deletion = iam.get_service_linked_role_deletion_status(
+                            DeletionTaskId=task_id
+                        )
+                    except Exception as exc:
+                        if _is_missing_resource_error(exc) and not _role_exists(
+                            iam, APPLICATION_SIGNALS_ROLE
+                        ):
+                            role_removed = True
+                            break
+                        raise
                     status = deletion["Status"]
                     if status == "SUCCEEDED":
                         role_removed = True
